@@ -133,31 +133,51 @@ vec2 cloud_ray_march(vec3 direction, vec3 sun_direction){
 }
 
 vec3 random_direction(float seed){
-	float phi = rand(seed) * PI;
-	float costheta = rand(seed + 100.0) * 2.0 - 1.0;
+	float phi = rand(seed) * 2.0 * PI;
+	float costheta = rand(seed + 100.0) * 0.5 + 0.5; // Constrain to upper hemisphere (0.5 to 1.0)
 	float theta = acos(costheta);
-	return vec3( sin(theta) * cos(phi), (theta) * sin(phi), cos(theta) );
+	return vec3( sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta) );
 }
 
 float get_shooting_star(vec3 eyedir){
 	float shooting_star = 0.0;
-	for(int i = 0; i < 4; i++){
+	vec3 move_dir = normalize(vec3(-1.0, -0.1, 0.0)); // Global movement: West and slightly down
+	
+	for(int i = 0; i < 2; i++){ // Reduced from 4 to 2 slots
 		float base_rand = rand(float(i));
 		float time = TIME + base_rand * 2.0;
-		float duration = 0.5 + base_rand;
+		float duration = 2.0 + base_rand * 8.0; // Increased duration (2s to 10s)
 		float seed = floor(time / duration) * duration + base_rand;
+		
+		// Only spawn a star if a random check passes for this seed
+		if (rand(seed + 500.0) > 0.3) continue; 
+		
 		float progress = mod(time, duration) / duration;
+		if (progress > 0.5) continue; // Star only exists for the first half of its duration
+		progress *= 2.0; // Rescale progress to 0.0 - 1.0
+		
 		float rand_value = rand(seed + 100.0);
 		float rand_scale = base_rand * 10.0;
-		float a = rand_value * 0.8;
-		mat3 angle = mat3(vec3(cos(a), -sin(a), 0.0), vec3(sin(a), cos(a), 0.0), vec3(0.0, 0.0, 1.0));
-		vec3 shooting_dir = direction_to_matrix(random_direction(seed)) * angle * eyedir;
-		vec2 shooting_uv = ((shooting_dir.xy + vec2(0.0, progress * 0.4)) * (8.0 + rand_scale)) + vec2(0.5);
+		
+		vec3 spawn_dir = random_direction(seed);
+		
+		// Create a matrix where the Y axis points towards our move_dir
+		vec3 z_axis = spawn_dir;
+		vec3 x_axis = normalize(cross(move_dir, z_axis));
+		vec3 y_axis = normalize(cross(z_axis, x_axis));
+		mat3 visual_mat = mat3(x_axis, y_axis, z_axis);
+		
+		// Project eyedir into this stable basis
+		// We transpose the matrix to go from World -> Local
+		vec3 shooting_dir = eyedir * visual_mat;
+		
+		// Movement is now consistently along the local Y axis
+		vec2 shooting_uv = ((shooting_dir.xy + vec2(0.0, progress * 0.5)) * (10.0 + rand_scale)) + vec2(0.5);
 
 		float shooting_mask = ceil(
 			clamp(shooting_uv.x * (1.0 - shooting_uv.x), 0.0, 1.0) *
 			clamp(shooting_uv.y * (1.0 - shooting_uv.y), 0.0, 1.0)
-			) * ceil(shooting_dir.z);
+			) * ceil(shooting_dir.z) * smoothstep(0.0, 0.2, eyedir.y);
 			
 		shooting_star = clamp(
 			shooting_star + texture(shooting_star_sampler, shooting_uv).x
