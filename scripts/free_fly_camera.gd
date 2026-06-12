@@ -56,3 +56,19 @@ func _process(delta: float) -> void:
 	
 	_velocity = _velocity.lerp(target_velocity, acceleration * delta)
 	position += _velocity * delta
+	
+	# --- Bounds Collision ---
+	# Terrain is 1000x1000, centered at (0,0)
+	var half_size = 500.0
+	global_position.x = clamp(global_position.x, -half_size, half_size)
+	global_position.z = clamp(global_position.z, -half_size, half_size)
+	
+	# --- Ground Collision ---
+	if terrain and terrain.macro_image:
+		var terrain_height = terrain.get_height_at(global_position.x, global_position.z)
+		var min_height = terrain_height + 2.0 # Keep camera 2 units above ground
+		if global_position.y < min_height:
+			global_position.y = min_height
+			# If we hit the ground, kill vertical downward velocity to prevent "jitter"
+			if _velocity.y < 0:
+				_velocity.y = 0
