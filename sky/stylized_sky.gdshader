@@ -201,6 +201,14 @@ void sky() {
 		) * ceil(dir.z);
 	vec4 astro_color = texture(astro_sampler, astro_uv);
 	
+	vec3 moon_dir_mat = direction_to_matrix(-LIGHT0_DIRECTION) * EYEDIR;
+	vec2 moon_uv = (-(moon_dir_mat.xy / moon_dir_mat.z) * astro_scale * 1.2) + vec2(0.5);
+	float moon_mask = ceil(
+		clamp(moon_uv.x * (1.0 - moon_uv.x), 0.0, 1.0) *
+		clamp(moon_uv.y * (1.0 - moon_uv.y), 0.0, 1.0)
+		) * ceil(moon_dir_mat.z);
+	vec4 moon_color = texture(astro_sampler, moon_uv);
+	
 	// Sky color
 	
 	vec3 sky_gradient = mix(bottom_color.rgb, top_color.rgb, clamp(EYEDIR.y, 0.0, 1.0));
@@ -223,6 +231,12 @@ void sky() {
 	// Add astro
 	
 	sky_color = mix(sky_color, astro_color.rgb * astro_intensity * astro_tint, astro_color.a * astro_mask * bottom_mask);
+	
+	// Add Moon
+	
+	vec3 moon_tint = vec3(0.8, 0.9, 1.0); // slight blue/white tint
+	float moon_intensity_val = 1.5; // Fixed intensity for moon
+	sky_color = mix(sky_color, moon_color.rgb * moon_intensity_val * moon_tint, moon_color.a * moon_mask * bottom_mask);
 	
 	// Add high clouds
 	

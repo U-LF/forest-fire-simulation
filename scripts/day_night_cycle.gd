@@ -5,6 +5,7 @@ extends Node
 
 @export_group("Nodes")
 @export var sun_light: DirectionalLight3D
+@export var moon_light: DirectionalLight3D
 @export var world_environment: WorldEnvironment
 
 @export_group("Day Colors")
@@ -74,6 +75,18 @@ func _update_sun(progress: float) -> void:
 		sun_light.light_color = Color(1.0, 0.4, 0.2).lerp(Color.WHITE, t)
 	elif sun_height >= 0.3:
 		sun_light.light_color = Color.WHITE
+
+	# Update Moon
+	if moon_light:
+		moon_light.rotation.x = -angle + PI
+		var moon_height = sin(angle - PI)
+		if moon_height > 0.0:
+			moon_light.light_energy = smoothstep(0.0, 0.2, moon_height) * 0.5
+		else:
+			moon_light.light_energy = 0.0
+		
+		# Darken moon light based on cloud coverage
+		moon_light.light_energy *= (1.0 - (cloud_coverage * 0.9))
 
 func _update_sky(progress: float) -> void:
 	if not _sky_material:

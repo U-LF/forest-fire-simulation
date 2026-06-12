@@ -57,9 +57,10 @@ day_night_cycle = NodePath("../DayNightCycle")
 rain_particles = NodePath("../RainParticles")
 lightning_light = NodePath("../LightningLight")
 
-[node name="DayNightCycle" type="Node" parent="." node_paths=PackedStringArray("sun_light", "world_environment")]
+[node name="DayNightCycle" type="Node" parent="." node_paths=PackedStringArray("sun_light", "moon_light", "world_environment")]
 script = ExtResource("3_cycle")
 sun_light = NodePath("../DirectionalLight3D")
+moon_light = NodePath("../MoonLight")
 world_environment = NodePath("../WorldEnvironment")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -67,6 +68,12 @@ environment = SubResource("Environment_main")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
+shadow_enabled = true
+
+[node name="MoonLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.433013, -0.25, 0, -0.5, -0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
+light_color = Color(0.6, 0.7, 1, 1)
+light_energy = 0.0
 shadow_enabled = true
 
 [node name="LightningLight" type="DirectionalLight3D" parent="."]
