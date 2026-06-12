@@ -1,7 +1,7 @@
 extends Camera3D
 
-@export var movement_speed: float = 10.0
-@export var acceleration: float = 5.0
+@export var movement_speed: float = 40.0
+@export var acceleration: float = 20.0
 @export var mouse_sensitivity: float = 0.1
 @export var speed_multiplier: float = 2.5
 
@@ -42,16 +42,13 @@ func _input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	var input_dir = Vector3.ZERO
 	
-	if Input.is_key_pressed(KEY_W): input_dir.z -= 1
-	if Input.is_key_pressed(KEY_S): input_dir.z += 1
-	if Input.is_key_pressed(KEY_A): input_dir.x -= 1
-	if Input.is_key_pressed(KEY_D): input_dir.x += 1
-	if Input.is_key_pressed(KEY_E): input_dir.y += 1
-	if Input.is_key_pressed(KEY_Q): input_dir.y -= 1
+	input_dir.x = Input.get_axis("move_left", "move_right")
+	input_dir.z = Input.get_axis("move_forward", "move_backward")
+	input_dir.y = Input.get_axis("move_down", "move_up")
 	
 	input_dir = input_dir.normalized()
 	
-	var multiplier = speed_multiplier if Input.is_key_pressed(KEY_SHIFT) else 1.0
+	var multiplier = speed_multiplier if Input.is_action_pressed("camera_speed") else 1.0
 	var target_velocity = (transform.basis * input_dir) * movement_speed * multiplier
 	
 	_velocity = _velocity.lerp(target_velocity, acceleration * delta)
