@@ -130,6 +130,16 @@ func _update_sky(progress: float) -> void:
 	current_bottom = current_bottom.lerp(cloud_darken, cloud_coverage * 0.8)
 	current_scatter = current_scatter.lerp(Color(0.2, 0.2, 0.2), cloud_coverage)
 
+	# Update Ambient Light in WorldEnvironment
+	if world_environment:
+		var env = world_environment.environment
+		# Lerp ambient color from warm to a cooler, dimmer stormy color
+		var base_ambient = Color(0.5, 0.4, 0.35) # Matches your current stylized base
+		var stormy_ambient = Color(0.25, 0.25, 0.3)
+		env.ambient_light_color = base_ambient.lerp(stormy_ambient, cloud_coverage)
+		# Slightly reduce ambient energy when cloudy
+		env.ambient_light_energy = lerp(0.4, 0.25, cloud_coverage)
+
 	_sky_material.set_shader_parameter("top_color", current_top)
 	_sky_material.set_shader_parameter("bottom_color", current_bottom)
 	_sky_material.set_shader_parameter("sun_scatter", current_scatter)
