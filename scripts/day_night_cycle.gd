@@ -9,18 +9,18 @@ extends Node
 @export var world_environment: WorldEnvironment
 
 @export_group("Day Colors")
-@export var day_top_color: Color = Color(0.2, 0.45, 1.0)
-@export var day_bottom_color: Color = Color(0.5, 0.7, 1.0)
-@export var day_sun_scatter: Color = Color(0.3, 0.3, 0.3)
+@export var day_top_color: Color = Color(0.4, 0.6, 1.0) # Brighter, clearer blue
+@export var day_bottom_color: Color = Color(0.8, 0.9, 1.0) # Soft horizon
+@export var day_sun_scatter: Color = Color(0.4, 0.4, 0.4)
 
 @export_group("Sunset Colors")
-@export var sunset_top_color: Color = Color(0.1, 0.2, 0.4)
-@export var sunset_bottom_color: Color = Color(1.0, 0.5, 0.2)
-@export var sunset_sun_scatter: Color = Color(1.0, 0.4, 0.1)
+@export var sunset_top_color: Color = Color(0.2, 0.1, 0.3) # Deep purple
+@export var sunset_bottom_color: Color = Color(1.0, 0.4, 0.2) # Vibrant orange matching the terrain's rock colors
+@export var sunset_sun_scatter: Color = Color(1.0, 0.3, 0.1)
 
 @export_group("Night Colors")
-@export var night_top_color: Color = Color(0.01, 0.02, 0.05)
-@export var night_bottom_color: Color = Color(0.02, 0.04, 0.1)
+@export var night_top_color: Color = Color(0.02, 0.05, 0.1) # Indigo night
+@export var night_bottom_color: Color = Color(0.05, 0.1, 0.2)
 @export var night_sun_scatter: Color = Color(0.1, 0.1, 0.2)
 
 @export_group("Feature Intensities")
@@ -62,7 +62,7 @@ func _update_sun(progress: float) -> void:
 	
 	# Light energy logic
 	if sun_height > 0.0:
-		sun_light.light_energy = smoothstep(0.0, 0.2, sun_height) * 1.5
+		sun_light.light_energy = smoothstep(0.0, 0.2, sun_height) * 1.2
 	else:
 		sun_light.light_energy = 0.0
 		

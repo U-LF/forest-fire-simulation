@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://be5j8m6v8p2k5"]
+[gd_scene load_steps=22 format=3 uid="uid://be5j8m6v8p2k5"]
 
 [ext_resource type="Material" uid="uid://m80rmki4fbox" path="res://sky/examples/night_sky.tres" id="1_sky"]
 [ext_resource type="Script" uid="uid://b0uqiw3w137el" path="res://scripts/free_fly_camera.gd" id="2_camera"]
@@ -19,11 +19,13 @@ sky_material = ExtResource("1_sky")
 background_mode = 2
 sky = SubResource("Sky_main")
 ambient_light_source = 2
-ambient_light_color = Color(0.45098, 0.333333, 0.309804, 1)
-ambient_light_energy = 0.5
+ambient_light_color = Color(0.5, 0.4, 0.35, 1)
+ambient_light_energy = 0.4
 tonemap_mode = 2
+tonemap_exposure = 0.9
 glow_enabled = true
-glow_bloom = 0.2
+glow_bloom = 0.1
+glow_strength = 0.8
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_terrain"]
 size = Vector2(1000, 1000)
@@ -33,24 +35,37 @@ subdivide_depth = 200
 [sub_resource type="BoxShape3D" id="BoxShape3D_terrain_col"]
 size = Vector3(1000, 1, 1000)
 
+[sub_resource type="Curve" id="Curve_rain_size"]
+_data = [Vector2(0, 0), 0.0, 5.0, 0, 0, Vector2(0.1, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.8), -0.2, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_rain_size"]
+curve = SubResource("Curve_rain_size")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain"]
 emission_shape = 3
 emission_box_extents = Vector3(500, 2, 500)
 direction = Vector3(0, -1, 0)
-spread = 5.0
-initial_velocity_min = 25.0
-initial_velocity_max = 35.0
+spread = 2.0
+initial_velocity_min = 30.0
+initial_velocity_max = 45.0
+scale_min = 0.5
+scale_max = 1.5
+scale_curve = SubResource("CurveTexture_rain_size")
 collision_mode = 2
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rain"]
 transparency = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(0.7, 0.8, 1, 0.5)
+albedo_color = Color(0.8, 0.9, 1, 0.4)
 
-[sub_resource type="QuadMesh" id="QuadMesh_rain"]
+[sub_resource type="SphereMesh" id="SphereMesh_rain"]
 material = SubResource("StandardMaterial3D_rain")
-size = Vector2(0.05, 1)
+radius = 0.05
+height = 0.3
+radial_segments = 4
+rings = 4
 
 [node name="Main" type="Node3D" unique_id=2086738227]
 
@@ -100,9 +115,7 @@ surface_material_override/0 = ExtResource("5_terrain_mat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_terrain_col")
 
-[node name="GPUParticlesCollisionBox3D" type="GPUParticlesCollisionBox3D" parent="Terrain" unique_id=868646450]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
-size = Vector3(1000, 2, 1000)
+[node name="GPUParticlesCollisionHeightField3D" type="GPUParticlesCollisionHeightField3D" parent="Terrain" unique_id=868646450]
 
 [node name="RainParticles" type="GPUParticles3D" parent="." unique_id=1174609481]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 180, 0)
@@ -110,7 +123,7 @@ amount = 50000
 lifetime = 10.0
 visibility_aabb = AABB(-500, -180, -500, 1000, 200, 1000)
 process_material = SubResource("ParticleProcessMaterial_rain")
-draw_pass_1 = SubResource("QuadMesh_rain")
+draw_pass_1 = SubResource("SphereMesh_rain")
 
 [node name="FreeFlyCamera" type="Camera3D" parent="." unique_id=1783319554 node_paths=PackedStringArray("terrain")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 120, 5)
