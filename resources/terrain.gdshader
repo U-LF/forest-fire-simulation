@@ -21,17 +21,15 @@ varying vec3 v_world_pos;
 
 // Function to calculate exact height at a given world position
 float get_height(vec2 world_xz) {
-    vec2 uv_macro = world_xz / terrain_scale;
+    // Correct UV mapping: Map world [-500, 500] to UV [0, 1]
+    // world_xz / terrain_scale gives [-0.5, 0.5], so we add 0.5
+    vec2 uv_macro = (world_xz / terrain_scale) + 0.5;
+    
     // Sample large sweeping hills
     float macro_h = texture(macro_noise, uv_macro).r;
     
     // Smoothstep creates the plateau/valley separation. 
-    // Lowering the bottom bound (e.g. to 0.1) allows the valley floor to gently roll.
     macro_h = smoothstep(0.1, 0.95, macro_h);
-    
-    // We completely remove micro_noise from the physical height displacement
-    // so the hills are geometrically perfectly smooth.
-    // (Micro noise is still used for texturing in the fragment shader).
     
     return macro_h * height_scale;
 }

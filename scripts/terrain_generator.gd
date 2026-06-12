@@ -1,21 +1,114 @@
 extends StaticBody3D
 
+signal terrain_ready
+
 @export var terrain_material: ShaderMaterial
 @export var mesh_instance: MeshInstance3D
 @export var collision_shape: CollisionShape3D
 
+var macro_image: Image
+var image_width: int = 1024
+var image_height: int = 1024
+
+var terrain_scale: float = 1000.0
+var height_scale: float = 140.0
+
 func _ready() -> void:
-	if not terrain_material or not mesh_instance or not collision_shape:
+	if not terrain_material:
+		push_error("TerrainGenerator: terrain_material is null!")
+		emit_signal("terrain_ready")
 		return
 		
-	# Wait one frame to ensure textures are loaded
-	await get_tree().process_frame
+	if not mesh_instance or not collision_shape:
+		push_error("TerrainGenerator: mesh_instance or collision_shape is missing!")
+		emit_signal("terrain_ready")
+		return
+		
+	var macro_tex = terrain_material.get_shader_parameter("macro_noise")
+	if macro_tex is NoiseTexture2D:
+		macro_image = macro_tex.get_image()
+		if not macro_image:
+			# If not ready immediately, wait for the texture to finish generating
+			await macro_tex.changed
+			macro_image = macro_tex.get_image()
+			
+		if macro_image:
+			image_width = macro_image.get_width()
+			image_height = macro_image.get_height()
+		else:
+			push_error("TerrainGenerator: Failed to get image from macro_noise texture after waiting!")
+			
+	var h_scale = terrain_material.get_shader_parameter("height_scale")
+	if h_scale != null: height_scale = float(h_scale)
+	
+	var t_scale = terrain_material.get_shader_parameter("terrain_scale")
+	if t_scale != null: terrain_scale = float(t_scale)
 	
 	_generate_collision_heightmap()
+	
+	# Signal to the forest generator that it's safe to read the heightmap
+	emit_signal("terrain_ready")
+
+func get_height_at(world_x: float, world_z: float) -> float:
+	if not macro_image:
+		return 0.0
+		
+	# Correct UV mapping: Map world [-500, 500] to UV [0, 1]
+	# This avoids the mirroring issue and matches standard texture mapping
+	var uv_x = (world_x / terrain_scale) + 0.5
+	var uv_y = (world_z / terrain_scale) + 0.5
+	
+	# Clamp to 0..1 to handle edges if needed, though wrap is safer for seamless
+	uv_x = wrapf(uv_x, 0.0, 1.0)
+	uv_y = wrapf(uv_y, 0.0, 1.0)
+	
+	# Convert to pixel coordinates for Bilinear Interpolation
+	var x = uv_x * image_width - 0.5
+	var y = uv_y * image_height - 0.5
+	
+	var x0 = int(floor(x))
+	var y0 = int(floor(y))
+	var x1 = x0 + 1
+	var y1 = y0 + 1
+	
+	var frac_x = x - x0
+	var frac_y = y - y0
+	
+	var px0 = wrapi(x0, 0, image_width)
+	var px1 = wrapi(x1, 0, image_width)
+	var py0 = wrapi(y0, 0, image_height)
+	var py1 = wrapi(y1, 0, image_height)
+	
+	var c00 = macro_image.get_pixel(px0, py0).r
+	var c10 = macro_image.get_pixel(px1, py0).r
+	var c01 = macro_image.get_pixel(px0, py1).r
+	var c11 = macro_image.get_pixel(px1, py1).r
+	
+	# Interpolate X
+	var c0 = lerp(c00, c10, frac_x)
+	var c1 = lerp(c01, c11, frac_x)
+	
+	# Interpolate Y
+	var macro_h = lerp(c0, c1, frac_y)
+	
+	# Apply final shaping
+	macro_h = smoothstep(0.1, 0.95, macro_h)
+	
+	return macro_h * height_scale
+
+func get_normal_at(world_x: float, world_z: float) -> Vector3:
+	var e = 1.0
+	var hL = get_height_at(world_x - e, world_z)
+	var hR = get_height_at(world_x + e, world_z)
+	var hD = get_height_at(world_x, world_z - e)
+	var hU = get_height_at(world_x, world_z + e)
+	
+	var n = Vector3(hL - hR, 2.0 * e, hD - hU)
+	return n.normalized()
 
 func _generate_collision_heightmap() -> void:
 	var plane_mesh = mesh_instance.mesh as PlaneMesh
-	if not plane_mesh:
+	if not plane_mesh or not macro_image:
 		return
 		
 	var width = plane_mesh.subdivide_width + 2
@@ -24,18 +117,6 @@ func _generate_collision_heightmap() -> void:
 	var heightmap_shape = HeightMapShape3D.new()
 	heightmap_shape.map_width = width
 	heightmap_shape.map_depth = depth
-	
-	var macro_tex = terrain_material.get_shader_parameter("macro_noise") as NoiseTexture2D
-	var micro_tex = terrain_material.get_shader_parameter("micro_noise") as NoiseTexture2D
-	
-	var height_scale = terrain_material.get_shader_parameter("height_scale") as float
-	var terrain_scale = terrain_material.get_shader_parameter("terrain_scale") as float
-	
-	if not macro_tex or not macro_tex.noise or not micro_tex or not micro_tex.noise:
-		return
-		
-	var macro_noise = macro_tex.noise
-	var micro_noise = micro_tex.noise
 	
 	var map_data = PackedFloat32Array()
 	map_data.resize(width * depth)
@@ -50,14 +131,14 @@ func _generate_collision_heightmap() -> void:
 			var world_x = start_x + (x * step_x)
 			var world_z = start_z + (z * step_z)
 			
-			var uv_macro_x = (world_x / terrain_scale) * 1024.0
-			var uv_macro_z = (world_z / terrain_scale) * 1024.0
-			
-			var macro_h = (macro_noise.get_noise_2d(uv_macro_x, uv_macro_z) * 0.5) + 0.5
-			macro_h = smoothstep(0.1, 0.95, macro_h)
-			
-			var total_height = macro_h * height_scale
-			map_data[z * width + x] = total_height
+			map_data[z * width + x] = get_height_at(world_x, world_z)
 			
 	heightmap_shape.map_data = map_data
 	collision_shape.shape = heightmap_shape
+	
+	# Also update GPU Particles Collision if it exists
+	var gp_col = get_node_or_null("GPUParticlesCollisionHeightField3D")
+	if gp_col is GPUParticlesCollisionHeightField3D:
+		gp_col.size = Vector3(plane_mesh.size.x, height_scale, plane_mesh.size.y)
+		# Position the heightfield so its base is at Y=0 and it grows upward
+		gp_col.position.y = height_scale / 2.0

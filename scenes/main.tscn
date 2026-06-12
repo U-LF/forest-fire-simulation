@@ -1,11 +1,16 @@
-[gd_scene load_steps=15 format=3 uid="uid://be5j8m6v8p2k5"]
+[gd_scene format=3 uid="uid://be5j8m6v8p2k5"]
 
 [ext_resource type="Material" uid="uid://m80rmki4fbox" path="res://sky/examples/night_sky.tres" id="1_sky"]
-[ext_resource type="Script" path="res://scripts/free_fly_camera.gd" id="2_camera"]
-[ext_resource type="Script" path="res://scripts/day_night_cycle.gd" id="3_cycle"]
-[ext_resource type="Script" path="res://scripts/weather_manager.gd" id="4_weather"]
-[ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terrain_gen"]
+[ext_resource type="Script" uid="uid://b0uqiw3w137el" path="res://scripts/free_fly_camera.gd" id="2_camera"]
+[ext_resource type="Script" uid="uid://cmpr2hkpvg553" path="res://scripts/day_night_cycle.gd" id="3_cycle"]
+[ext_resource type="Script" uid="uid://ddqnwooyn7q44" path="res://scripts/weather_manager.gd" id="4_weather"]
+[ext_resource type="Script" uid="uid://dr45k8tx0mtbx" path="res://scripts/terrain_generator.gd" id="5_terrain_gen"]
 [ext_resource type="Material" uid="uid://df7tad8s7d" path="res://resources/terrain_material.tres" id="5_terrain_mat"]
+[ext_resource type="Script" uid="uid://outky8qid5ay" path="res://scripts/forest_generator.gd" id="6_forest_gen"]
+[ext_resource type="PackedScene" uid="uid://d2xgupwutbrof" path="res://Nature kit/Models/GLTF format/tree_default.glb" id="7_tree_1"]
+[ext_resource type="PackedScene" uid="uid://c2a5kph5r6v3m" path="res://Nature kit/Models/GLTF format/tree_pineDefaultA.glb" id="8_tree_2"]
+[ext_resource type="PackedScene" uid="uid://bpcuhe4s3o182" path="res://Nature kit/Models/GLTF format/tree_pineDefaultB.glb" id="9_tree_3"]
+[ext_resource type="PackedScene" uid="uid://c2iv4c8f8yjj2" path="res://Nature kit/Models/GLTF format/tree_fat.glb" id="10_tree_4"]
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = ExtResource("1_sky")
@@ -33,83 +38,86 @@ emission_shape = 3
 emission_box_extents = Vector3(500, 2, 500)
 direction = Vector3(0, -1, 0)
 spread = 5.0
-initial_velocity_min = 20.0
-initial_velocity_max = 25.0
+initial_velocity_min = 25.0
+initial_velocity_max = 35.0
 collision_mode = 2
-collision_friction = 0.0
-collision_bounce = 0.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rain"]
 transparency = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(0.7, 0.8, 1.0, 0.5)
+albedo_color = Color(0.7, 0.8, 1, 0.5)
 
 [sub_resource type="QuadMesh" id="QuadMesh_rain"]
 material = SubResource("StandardMaterial3D_rain")
-size = Vector2(0.05, 1.0)
-orientation = 2
+size = Vector2(0.05, 1)
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=2086738227]
 
-[node name="WeatherManager" type="Node3D" parent="." node_paths=PackedStringArray("day_night_cycle", "rain_particles", "lightning_light")]
+[node name="WeatherManager" type="Node3D" parent="." unique_id=751555145 node_paths=PackedStringArray("day_night_cycle", "rain_particles", "lightning_light")]
 script = ExtResource("4_weather")
 day_night_cycle = NodePath("../DayNightCycle")
 rain_particles = NodePath("../RainParticles")
 lightning_light = NodePath("../LightningLight")
 
-[node name="DayNightCycle" type="Node" parent="." node_paths=PackedStringArray("sun_light", "moon_light", "world_environment")]
+[node name="DayNightCycle" type="Node" parent="." unique_id=1468792250 node_paths=PackedStringArray("sun_light", "moon_light", "world_environment")]
 script = ExtResource("3_cycle")
 sun_light = NodePath("../DirectionalLight3D")
 moon_light = NodePath("../MoonLight")
 world_environment = NodePath("../WorldEnvironment")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=991755465]
 environment = SubResource("Environment_main")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=191772709]
 transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
 shadow_enabled = true
 
-[node name="MoonLight" type="DirectionalLight3D" parent="."]
+[node name="MoonLight" type="DirectionalLight3D" parent="." unique_id=153534737]
 transform = Transform3D(0.866025, 0.433013, -0.25, 0, -0.5, -0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
 light_color = Color(0.6, 0.7, 1, 1)
 light_energy = 0.0
 shadow_enabled = true
 
-[node name="LightningLight" type="DirectionalLight3D" parent="."]
+[node name="LightningLight" type="DirectionalLight3D" parent="." unique_id=1495172572]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 200, 0)
 light_color = Color(0.8, 0.9, 1, 1)
 light_energy = 0.0
 shadow_enabled = true
 
-[node name="Terrain" type="StaticBody3D" parent="." node_paths=PackedStringArray("terrain_material", "mesh_instance", "collision_shape")]
+[node name="Terrain" type="StaticBody3D" parent="." unique_id=2006622332 node_paths=PackedStringArray("mesh_instance", "collision_shape")]
 script = ExtResource("5_terrain_gen")
 terrain_material = ExtResource("5_terrain_mat")
 mesh_instance = NodePath("MeshInstance3D")
 collision_shape = NodePath("CollisionShape3D")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain"]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain" unique_id=1721342810]
 mesh = SubResource("PlaneMesh_terrain")
 surface_material_override/0 = ExtResource("5_terrain_mat")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain" unique_id=1648746290]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_terrain_col")
 
-[node name="GPUParticlesCollisionBox3D" type="GPUParticlesCollisionBox3D" parent="Terrain"]
+[node name="GPUParticlesCollisionBox3D" type="GPUParticlesCollisionBox3D" parent="Terrain" unique_id=868646450]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
 size = Vector3(1000, 2, 1000)
 
-[node name="RainParticles" type="GPUParticles3D" parent="."]
+[node name="RainParticles" type="GPUParticles3D" parent="." unique_id=1174609481]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 180, 0)
 amount = 50000
-lifetime = 1.5
+lifetime = 10.0
 visibility_aabb = AABB(-500, -180, -500, 1000, 200, 1000)
 process_material = SubResource("ParticleProcessMaterial_rain")
 draw_pass_1 = SubResource("QuadMesh_rain")
 
-[node name="FreeFlyCamera" type="Camera3D" parent="."]
+[node name="FreeFlyCamera" type="Camera3D" parent="." unique_id=1783319554]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 120, 5)
 script = ExtResource("2_camera")
+
+[node name="Forest" type="Node3D" parent="." unique_id=1902086126 node_paths=PackedStringArray("terrain")]
+script = ExtResource("6_forest_gen")
+terrain = NodePath("../Terrain")
+tree_scenes = Array[PackedScene]([ExtResource("7_tree_1"), ExtResource("8_tree_2"), ExtResource("9_tree_3"), ExtResource("10_tree_4")])
+count_per_tree_type = 15000
 
