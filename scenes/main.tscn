@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=3 uid="uid://be5j8m6v8p2k5"]
+[gd_scene load_steps=15 format=3 uid="uid://be5j8m6v8p2k5"]
 
 [ext_resource type="Material" uid="uid://m80rmki4fbox" path="res://sky/examples/night_sky.tres" id="1_sky"]
 [ext_resource type="Script" path="res://scripts/free_fly_camera.gd" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/day_night_cycle.gd" id="3_cycle"]
+[ext_resource type="Script" path="res://scripts/weather_manager.gd" id="4_weather"]
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = ExtResource("1_sky")
@@ -23,7 +24,38 @@ size = Vector2(100, 100)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_terrain"]
 albedo_color = Color(0.133333, 0.2, 0.0666667, 1)
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_terrain_col"]
+size = Vector3(100, 1, 100)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain"]
+emission_shape = 3
+emission_box_extents = Vector3(50, 2, 50)
+direction = Vector3(0, -1, 0)
+spread = 5.0
+initial_velocity_min = 20.0
+initial_velocity_max = 25.0
+collision_mode = 2
+collision_friction = 0.0
+collision_bounce = 0.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rain"]
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.7, 0.8, 1.0, 0.5)
+
+[sub_resource type="QuadMesh" id="QuadMesh_rain"]
+material = SubResource("StandardMaterial3D_rain")
+size = Vector2(0.05, 1.0)
+orientation = 2
+
 [node name="Main" type="Node3D"]
+
+[node name="WeatherManager" type="Node3D" parent="." node_paths=PackedStringArray("day_night_cycle", "rain_particles", "lightning_light")]
+script = ExtResource("4_weather")
+day_night_cycle = NodePath("../DayNightCycle")
+rain_particles = NodePath("../RainParticles")
+lightning_light = NodePath("../LightningLight")
 
 [node name="DayNightCycle" type="Node" parent="." node_paths=PackedStringArray("sun_light", "world_environment")]
 script = ExtResource("3_cycle")
@@ -37,10 +69,35 @@ environment = SubResource("Environment_main")
 transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
 shadow_enabled = true
 
-[node name="Terrain" type="MeshInstance3D" parent="."]
+[node name="LightningLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 10, 0)
+light_color = Color(0.8, 0.9, 1, 1)
+light_energy = 0.0
+shadow_enabled = true
+
+[node name="Terrain" type="StaticBody3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain"]
 mesh = SubResource("PlaneMesh_terrain")
 surface_material_override/0 = SubResource("StandardMaterial3D_terrain")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+shape = SubResource("BoxShape3D_terrain_col")
+
+[node name="GPUParticlesCollisionBox3D" type="GPUParticlesCollisionBox3D" parent="Terrain"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+size = Vector3(100, 2, 100)
+
+[node name="RainParticles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
+amount = 5000
+lifetime = 1.5
+visibility_aabb = AABB(-50, -25, -50, 100, 50, 100)
+process_material = SubResource("ParticleProcessMaterial_rain")
+draw_pass_1 = SubResource("QuadMesh_rain")
 
 [node name="FreeFlyCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5)
 script = ExtResource("2_camera")
+

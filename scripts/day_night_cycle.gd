@@ -29,6 +29,7 @@ extends Node
 
 var _time: float = 0.0
 var _sky_material: ShaderMaterial
+var rain_intensity: float = 0.0 # 0.0 to 1.0 (Managed by WeatherManager)
 
 func _ready() -> void:
 	if world_environment and world_environment.environment.sky:
@@ -62,6 +63,9 @@ func _update_sun(progress: float) -> void:
 		sun_light.light_energy = smoothstep(0.0, 0.2, sun_height) * 1.5
 	else:
 		sun_light.light_energy = 0.0
+		
+	# Darken sun light during rain
+	sun_light.light_energy *= (1.0 - (rain_intensity * 0.8))
 	
 	# Light color logic
 	if sun_height > 0.0 and sun_height < 0.3:
@@ -106,6 +110,12 @@ func _update_sky(progress: float) -> void:
 		current_bottom = night_bottom_color
 		current_scatter = night_sun_scatter
 
+	# Apply Rain Overrides (Darkening and Graying out the sky)
+	var rain_darken = Color(0.3, 0.3, 0.4)
+	current_top = current_top.lerp(rain_darken, rain_intensity * 0.8)
+	current_bottom = current_bottom.lerp(rain_darken, rain_intensity * 0.8)
+	current_scatter = current_scatter.lerp(Color(0.2, 0.2, 0.2), rain_intensity)
+
 	_sky_material.set_shader_parameter("top_color", current_top)
 	_sky_material.set_shader_parameter("bottom_color", current_bottom)
 	_sky_material.set_shader_parameter("sun_scatter", current_scatter)
@@ -114,7 +124,16 @@ func _update_sky(progress: float) -> void:
 	var day_weight = smoothstep(-0.2, 0.2, sun_height)
 	var night_weight = 1.0 - day_weight
 	
-	_sky_material.set_shader_parameter("stars_intensity", night_weight * night_stars)
-	_sky_material.set_shader_parameter("shooting_stars_intensity", night_weight * 4.0)
-	_sky_material.set_shader_parameter("clouds_light_color", night_clouds_light.lerp(day_clouds_light, day_weight))
-	_sky_material.set_shader_parameter("astro_intensity", lerp(1.2, 3.0, day_weight))
+	_sky_material.set_shader_parameter("stars_intensity", night_weight * night_stars * (1.0 - rain_intensity))
+	_sky_material.set_shader_parameter("shooting_stars_intensity", night_weight * 4.0 * (1.0 - rain_intensity))
+	
+	var base_clouds_light = night_clouds_light.lerp(day_clouds_light, day_weight)
+	_sky_material.set_shader_parameter("clouds_light_color", base_clouds_light.lerp(Color(0.2, 0.2, 0.2), rain_intensity))
+	
+	_sky_material.set_shader_parameter("astro_intensity", lerp(1.2, 3.0, day_weight) * (1.0 - rain_intensity * 0.8))
+	
+	# Cloud Density Adjustments for heavy rain
+	var target_density = lerp(0.4, 0.9, rain_intensity)
+	var target_high_density = lerp(0.0, 1.0, rain_intensity)
+	_sky_material.set_shader_parameter("clouds_density", target_density)
+	_sky_material.set_shader_parameter("high_clouds_density", target_high_density)
