@@ -14,6 +14,8 @@ var terrain_scale: float = 1000.0
 var height_scale: float = 140.0
 
 func _ready() -> void:
+	randomize() # Ensure different results each launch
+	
 	if not terrain_material:
 		push_error("TerrainGenerator: terrain_material is null!")
 		emit_signal("terrain_ready")
@@ -25,6 +27,14 @@ func _ready() -> void:
 		return
 		
 	var macro_tex = terrain_material.get_shader_parameter("macro_noise")
+	var micro_tex = terrain_material.get_shader_parameter("micro_noise")
+	
+	# Randomize seeds for variety
+	if macro_tex is NoiseTexture2D and macro_tex.noise:
+		macro_tex.noise.seed = randi()
+	if micro_tex is NoiseTexture2D and micro_tex.noise:
+		micro_tex.noise.seed = randi()
+		
 	if macro_tex is NoiseTexture2D:
 		macro_image = macro_tex.get_image()
 		if not macro_image:

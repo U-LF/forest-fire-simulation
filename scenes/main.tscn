@@ -111,9 +111,10 @@ visibility_aabb = AABB(-500, -180, -500, 1000, 200, 1000)
 process_material = SubResource("ParticleProcessMaterial_rain")
 draw_pass_1 = SubResource("QuadMesh_rain")
 
-[node name="FreeFlyCamera" type="Camera3D" parent="." unique_id=1783319554]
+[node name="FreeFlyCamera" type="Camera3D" parent="." unique_id=1783319554 node_paths=PackedStringArray("terrain")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 120, 5)
 script = ExtResource("2_camera")
+terrain = NodePath("../Terrain")
 
 [node name="Forest" type="Node3D" parent="." unique_id=1902086126 node_paths=PackedStringArray("terrain")]
 script = ExtResource("6_forest_gen")

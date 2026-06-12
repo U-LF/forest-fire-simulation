@@ -5,12 +5,24 @@ extends Camera3D
 @export var mouse_sensitivity: float = 0.1
 @export var speed_multiplier: float = 2.5
 
+@export var terrain: Node3D
+
 var _velocity: Vector3 = Vector3.ZERO
 var _rotation: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_rotation = Vector2(rotation.y, rotation.x)
+	_rotation = Vector2(rotation_degrees.y, rotation_degrees.x)
+	
+	if terrain:
+		if not terrain.macro_image:
+			await terrain.terrain_ready
+		
+		var terrain_height = terrain.get_height_at(global_position.x, global_position.z)
+		# Ensure camera is at least 30 units above the terrain
+		if global_position.y < terrain_height + 30.0:
+			global_position.y = terrain_height + 30.0
+			print("Camera: Adjusted start height to ", global_position.y)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
