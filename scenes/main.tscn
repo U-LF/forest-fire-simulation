@@ -4,6 +4,8 @@
 [ext_resource type="Script" path="res://scripts/free_fly_camera.gd" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/day_night_cycle.gd" id="3_cycle"]
 [ext_resource type="Script" path="res://scripts/weather_manager.gd" id="4_weather"]
+[ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terrain_gen"]
+[ext_resource type="Material" uid="uid://df7tad8s7d" path="res://resources/terrain_material.tres" id="5_terrain_mat"]
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = ExtResource("1_sky")
@@ -19,17 +21,16 @@ glow_enabled = true
 glow_bloom = 0.2
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_terrain"]
-size = Vector2(100, 100)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_terrain"]
-albedo_color = Color(0.133333, 0.2, 0.0666667, 1)
+size = Vector2(1000, 1000)
+subdivide_width = 200
+subdivide_depth = 200
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_terrain_col"]
-size = Vector3(100, 1, 100)
+size = Vector3(1000, 1, 1000)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain"]
 emission_shape = 3
-emission_box_extents = Vector3(50, 2, 50)
+emission_box_extents = Vector3(500, 2, 500)
 direction = Vector3(0, -1, 0)
 spread = 5.0
 initial_velocity_min = 20.0
@@ -77,16 +78,20 @@ light_energy = 0.0
 shadow_enabled = true
 
 [node name="LightningLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 10, 0)
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 200, 0)
 light_color = Color(0.8, 0.9, 1, 1)
 light_energy = 0.0
 shadow_enabled = true
 
-[node name="Terrain" type="StaticBody3D" parent="."]
+[node name="Terrain" type="StaticBody3D" parent="." node_paths=PackedStringArray("terrain_material", "mesh_instance", "collision_shape")]
+script = ExtResource("5_terrain_gen")
+terrain_material = ExtResource("5_terrain_mat")
+mesh_instance = NodePath("MeshInstance3D")
+collision_shape = NodePath("CollisionShape3D")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain"]
 mesh = SubResource("PlaneMesh_terrain")
-surface_material_override/0 = SubResource("StandardMaterial3D_terrain")
+surface_material_override/0 = ExtResource("5_terrain_mat")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
@@ -94,17 +99,17 @@ shape = SubResource("BoxShape3D_terrain_col")
 
 [node name="GPUParticlesCollisionBox3D" type="GPUParticlesCollisionBox3D" parent="Terrain"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
-size = Vector3(100, 2, 100)
+size = Vector3(1000, 2, 1000)
 
 [node name="RainParticles" type="GPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
-amount = 5000
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 180, 0)
+amount = 50000
 lifetime = 1.5
-visibility_aabb = AABB(-50, -25, -50, 100, 50, 100)
+visibility_aabb = AABB(-500, -180, -500, 1000, 200, 1000)
 process_material = SubResource("ParticleProcessMaterial_rain")
 draw_pass_1 = SubResource("QuadMesh_rain")
 
 [node name="FreeFlyCamera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 120, 5)
 script = ExtResource("2_camera")
 

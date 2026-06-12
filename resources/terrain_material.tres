@@ -1,0 +1,42 @@
+[gd_resource type="ShaderMaterial" load_steps=6 format=3 uid="uid://df7tad8s7d"]
+
+[ext_resource type="Shader" path="res://resources/terrain.gdshader" id="1_terrain"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_macro"]
+noise_type = 3
+frequency = 0.001
+fractal_type = 2
+fractal_octaves = 2
+fractal_gain = 0.3
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_macro"]
+width = 1024
+height = 1024
+seamless = true
+normalize = true
+noise = SubResource("FastNoiseLite_macro")
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_micro"]
+noise_type = 0
+frequency = 0.05
+fractal_type = 2
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_micro"]
+width = 512
+height = 512
+seamless = true
+noise = SubResource("FastNoiseLite_micro")
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_terrain")
+shader_parameter/terrain_scale = 1000.0
+shader_parameter/height_scale = 140.0
+shader_parameter/color_grass_base = Color(0.15, 0.25, 0.1, 1)
+shader_parameter/color_grass_dark = Color(0.08, 0.15, 0.05, 1)
+shader_parameter/color_rock_base = Color(0.35, 0.33, 0.3, 1)
+shader_parameter/color_rock_dark = Color(0.2, 0.18, 0.15, 1)
+shader_parameter/color_dirt = Color(0.25, 0.2, 0.12, 1)
+shader_parameter/macro_noise = SubResource("NoiseTexture2D_macro")
+shader_parameter/micro_noise = SubResource("NoiseTexture2D_micro")
