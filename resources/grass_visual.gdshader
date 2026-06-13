@@ -44,7 +44,14 @@ void fragment() {
     // Apply charring effect (turn grass black where burnt)
     final_color = mix(final_color, vec3(0.02, 0.02, 0.02), char_lvl);
     
+    // Ember effect
+    float ember_noise = fract(sin(dot(floor(v_world_pos.xz * 3.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float ember_pulse = 0.5 + 0.5 * sin(TIME * 3.5 + ember_noise * 10.0);
+    float ember_mask = smoothstep(0.8, 1.0, ember_noise) * char_lvl;
+    vec3 ember_color = vec3(1.0, 0.3, 0.0) * ember_mask * ember_pulse * 1.5;
+
     ALBEDO = final_color;
+    EMISSION = ember_color;
     ALPHA = tex.a * albedo_color.a;
     ALPHA_SCISSOR_THRESHOLD = alpha_scissor_threshold;
     

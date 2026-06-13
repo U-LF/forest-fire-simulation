@@ -108,7 +108,14 @@ void fragment() {
     // Apply charring effect (turn terrain pitch black where burnt)
     final_color = mix(final_color, vec3(0.05, 0.05, 0.05), char_lvl);
     
+    // Ember effect
+    float ember_noise = texture(micro_noise, v_world_pos.xz / 2.0).r;
+    float ember_pulse = 0.5 + 0.5 * sin(TIME * 3.0 + ember_noise * 20.0);
+    float ember_mask = smoothstep(0.6, 0.8, ember_noise) * char_lvl;
+    vec3 ember_color = vec3(1.0, 0.3, 0.0) * ember_mask * ember_pulse * 2.0;
+    
     ALBEDO = final_color;
+    EMISSION = ember_color;
     ROUGHNESS = mix(0.8, 0.95, detail); // Break up reflections
     SPECULAR = 0.0;
 }

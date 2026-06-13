@@ -71,6 +71,8 @@ func _ready() -> void:
 
 var fire_particles: GPUParticles3D
 var fire_proc_mat: ShaderMaterial
+var ember_particles: GPUParticles3D
+var ember_proc_mat: ShaderMaterial
 
 func _setup_particles() -> void:
 	var terrain = get_parent().get_node_or_null("Terrain")
@@ -78,6 +80,7 @@ func _setup_particles() -> void:
 	
 	var height_map = terrain.terrain_material.get_shader_parameter("macro_noise")
 	
+	# --- Fire Particles ---
 	fire_proc_mat = ShaderMaterial.new()
 	fire_proc_mat.shader = load("res://resources/fire_particles.gdshader")
 	fire_proc_mat.set_shader_parameter("burn_map", vp_a.get_texture())
@@ -116,6 +119,40 @@ func _setup_particles() -> void:
 	fire_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	
 	add_child(fire_particles)
+	
+	# --- Ember Particles ---
+	ember_proc_mat = ShaderMaterial.new()
+	ember_proc_mat.shader = load("res://resources/ember_particles.gdshader")
+	ember_proc_mat.set_shader_parameter("burn_map", vp_a.get_texture())
+	ember_proc_mat.set_shader_parameter("height_map", height_map)
+	ember_proc_mat.set_shader_parameter("terrain_size", terrain_size)
+	ember_proc_mat.set_shader_parameter("noise_scale", noise_scale)
+	ember_proc_mat.set_shader_parameter("height_scale", 120.0)
+	ember_proc_mat.set_shader_parameter("spawn_radius", 600.0)
+	
+	var ember_draw_mat = StandardMaterial3D.new()
+	ember_draw_mat.albedo_color = Color(1.0, 0.5, 0.1, 1.0)
+	ember_draw_mat.emission_enabled = true
+	ember_draw_mat.emission = Color(1.0, 0.4, 0.0)
+	ember_draw_mat.emission_energy_multiplier = 10.0
+	ember_draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ember_draw_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	
+	var ember_quad = QuadMesh.new()
+	ember_quad.material = ember_draw_mat
+	
+	ember_particles = GPUParticles3D.new()
+	ember_particles.amount = 20000
+	ember_particles.process_material = ember_proc_mat
+	ember_particles.draw_pass_1 = ember_quad
+	ember_particles.lifetime = 3.0
+	ember_particles.explosiveness = 0.0
+	ember_particles.fixed_fps = 0
+	ember_particles.local_coords = false
+	ember_particles.visibility_aabb = AABB(Vector3(-1000, -100, -1000), Vector3(2000, 300, 2000))
+	ember_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	
+	add_child(ember_particles)
 
 func _inject_to_terrain() -> void:
 	var terrain = get_parent().get_node_or_null("Terrain")
@@ -151,8 +188,13 @@ func _process(_delta: float) -> void:
 		var cam = get_viewport().get_camera_3d()
 		if cam:
 			var cam_pos = cam.global_position
-			fire_particles.global_position = Vector3(cam_pos.x, 0, cam_pos.z)
-			fire_proc_mat.set_shader_parameter("world_offset", fire_particles.global_position)
+			var world_offset = Vector3(cam_pos.x, 0, cam_pos.z)
+			fire_particles.global_position = world_offset
+			fire_proc_mat.set_shader_parameter("world_offset", world_offset)
+			
+			if ember_particles and ember_proc_mat:
+				ember_particles.global_position = world_offset
+				ember_proc_mat.set_shader_parameter("world_offset", world_offset)
 
 func _on_fire_started(world_pos: Vector3) -> void:
 	var uv_x = (world_pos.x / terrain_size) + 0.5
