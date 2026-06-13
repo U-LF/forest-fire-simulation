@@ -19,18 +19,18 @@ var rain_shift_speed: float = 0.05
 func _ready() -> void:
 	if rain_particles:
 		rain_particles.emitting = false
-		if terrain:
-			var size = terrain.terrain_size
-			var process_mat = rain_particles.process_material as ParticleProcessMaterial
-			if process_mat:
-				# Use duplicate to avoid affecting other materials if shared
-				rain_particles.process_material = process_mat.duplicate()
-				(rain_particles.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(size.x / 2.0, 2.0, size.y / 2.0)
-			
-			rain_particles.visibility_aabb = AABB(
-				Vector3(-size.x / 2.0, -180.0, -size.y / 2.0),
-				Vector3(size.x, 200.0, size.y)
-			)
+		var process_mat = rain_particles.process_material as ParticleProcessMaterial
+		if process_mat:
+			# Use duplicate to avoid affecting other materials if shared
+			rain_particles.process_material = process_mat.duplicate()
+			# Concentrate rain around camera for massive performance gain
+			(rain_particles.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(100.0, 2.0, 100.0)
+		
+		# Reduced AABB to match localized rain
+		rain_particles.visibility_aabb = AABB(
+			Vector3(-100.0, -180.0, -100.0),
+			Vector3(200.0, 200.0, 200.0)
+		)
 
 	if lightning_light:
 		lightning_light.light_energy = 0.0
@@ -41,6 +41,13 @@ func _ready() -> void:
 	rain_intensity = min(target_rain_intensity, smoothstep(0.3, 0.8, cloud_coverage))
 
 func _process(delta: float) -> void:
+	# Localize rain particles to camera
+	var cam = get_viewport().get_camera_3d()
+	if cam and rain_particles:
+		var cam_pos = cam.global_position
+		rain_particles.global_position.x = cam_pos.x
+		rain_particles.global_position.z = cam_pos.z
+
 	_time_since_last_check += delta
 	if _time_since_last_check >= check_interval:
 		_time_since_last_check = 0.0

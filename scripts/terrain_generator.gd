@@ -66,11 +66,9 @@ func get_height_at(world_x: float, world_z: float) -> float:
 		return 0.0
 		
 	# Correct UV mapping: Map world [-500, 500] to UV [0, 1]
-	# This avoids the mirroring issue and matches standard texture mapping
 	var uv_x = (world_x / terrain_scale) + 0.5
 	var uv_y = (world_z / terrain_scale) + 0.5
 	
-	# Clamp to 0..1 to handle edges if needed, though wrap is safer for seamless
 	uv_x = wrapf(uv_x, 0.0, 1.0)
 	uv_y = wrapf(uv_y, 0.0, 1.0)
 	
@@ -96,14 +94,9 @@ func get_height_at(world_x: float, world_z: float) -> float:
 	var c01 = macro_image.get_pixel(px0, py1).r
 	var c11 = macro_image.get_pixel(px1, py1).r
 	
-	# Interpolate X
 	var c0 = lerp(c00, c10, frac_x)
 	var c1 = lerp(c01, c11, frac_x)
-	
-	# Interpolate Y
 	var macro_h = lerp(c0, c1, frac_y)
-	
-	# Apply final shaping
 	macro_h = smoothstep(0.1, 0.95, macro_h)
 	
 	return macro_h * height_scale
@@ -123,8 +116,9 @@ func _generate_collision_heightmap() -> void:
 	if not plane_mesh or not macro_image:
 		return
 		
-	var width = plane_mesh.subdivide_width + 2
-	var depth = plane_mesh.subdivide_depth + 2
+	var collision_step = 4
+	var width = (plane_mesh.subdivide_width + 2) / collision_step
+	var depth = (plane_mesh.subdivide_depth + 2) / collision_step
 	
 	var heightmap_shape = HeightMapShape3D.new()
 	heightmap_shape.map_width = width
@@ -142,15 +136,12 @@ func _generate_collision_heightmap() -> void:
 		for x in range(width):
 			var world_x = start_x + (x * step_x)
 			var world_z = start_z + (z * step_z)
-			
 			map_data[z * width + x] = get_height_at(world_x, world_z)
 			
 	heightmap_shape.map_data = map_data
 	collision_shape.shape = heightmap_shape
 	
-	# Also update GPU Particles Collision if it exists
 	var gp_col = get_node_or_null("GPUParticlesCollisionHeightField3D")
 	if gp_col is GPUParticlesCollisionHeightField3D:
 		gp_col.size = Vector3(plane_mesh.size.x, height_scale, plane_mesh.size.y)
-		# Position the heightfield so its base is at Y=0 and it grows upward
 		gp_col.position.y = height_scale / 2.0

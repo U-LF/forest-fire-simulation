@@ -38,16 +38,16 @@ void vertex() {
     vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     
     // 1. Calculate Height
-    float h = get_height(world_pos.xz);
+    float h = get_height(world_pos.xyz.xz);
     v_height = h;
     VERTEX.y += h;
     
     // 2. Calculate High-Quality Normals via Central Difference
     float e = 1.0; // Sample distance (1 meter)
-    float hL = get_height(world_pos.xz + vec2(-e, 0.0));
-    float hR = get_height(world_pos.xz + vec2(e, 0.0));
-    float hD = get_height(world_pos.xz + vec2(0.0, -e));
-    float hU = get_height(world_pos.xz + vec2(0.0, e));
+    float hL = get_height(world_pos.xyz.xz + vec2(-e, 0.0));
+    float hR = get_height(world_pos.xyz.xz + vec2(e, 0.0));
+    float hD = get_height(world_pos.xyz.xz + vec2(0.0, -e));
+    float hU = get_height(world_pos.xyz.xz + vec2(0.0, e));
     
     vec3 n;
     n.x = hL - hR;

@@ -5,14 +5,10 @@ extends Node3D
 @export var total_tree_count: int = 400000
 @export var chunk_size: float = 500.0
 @export var visibility_distance: float = 2000.0
-@export var shadow_distance: float = 1200.0 # Chunks further than this from CAMERA won't cast shadows
-@export var shadow_update_interval: float = 0.5 # Seconds between shadow checks
 
 # Spatial indexing for fire logic
 var spatial_index: Dictionary = {}
 var _chunks: Array[MultiMeshInstance3D] = []
-var _chunk_centers: Array[Vector3] = []
-var _shadow_timer: float = 0.0
 
 var _is_generating: bool = false
 
@@ -144,7 +140,6 @@ func _generate_forest_threaded():
 func _finalize_generation(meshes, material_arrays, data, cols, rows):
 	var wind_shader = load("res://resources/tree_wind.gdshader")
 	_chunks.clear()
-	_chunk_centers.clear()
 	
 	for type_idx in range(tree_scenes.size()):
 		var original_mesh = meshes[type_idx]
@@ -200,55 +195,55 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 			var mmi = MultiMeshInstance3D.new()
 			mmi.multimesh = multimesh
 			
-			# Dynamic Shadow Logic
-			# We estimate chunk center to decide on shadows
-			var r = int(chunk_idx) / int(cols)
-			var c = int(chunk_idx) % int(cols)
-			var chunk_center = Vector3(
-				(float(c) * chunk_size) - (terrain.terrain_size.x / 2.0) + (chunk_size / 2.0),
-				0,
-				(float(r) * chunk_size) - (terrain.terrain_size.y / 2.0) + (chunk_size / 2.0)
-			)
-			
-			_chunks.append(mmi)
-			_chunk_centers.append(chunk_center)
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			
 			mmi.visibility_range_end = visibility_distance
 			mmi.visibility_range_end_margin = 300.0
 			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 			
 			add_child(mmi)
+			_chunks.append(mmi)
+			
+			# --- Billboard LOD ---
+			# Create a simple billboard for distant trees to save massive polygon throughput
+			var billboard_mmi = MultiMeshInstance3D.new()
+			var bb_multimesh = MultiMesh.new()
+			bb_multimesh.transform_format = MultiMesh.TRANSFORM_3D
+			bb_multimesh.instance_count = transforms.size()
+			
+			# Create a simple quad for the billboard
+			var quad = QuadMesh.new()
+			quad.size = Vector2(1, 1) # Will be scaled by transforms
+			
+			var bb_mat = StandardMaterial3D.new()
+			bb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			bb_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+			bb_mat.billboard_keep_scale = true
+			bb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+			
+			# Try to pick a representative color from the original materials
+			var color = Color(0.2, 0.4, 0.1) # Default forest green
+			if material_arrays[type_idx].size() > 0:
+				var m = material_arrays[type_idx][0]
+				if m is StandardMaterial3D: color = m.albedo_color
+			bb_mat.albedo_color = color.lerp(Color.BLACK, 0.2) # Darken slightly for distance
+			quad.material = bb_mat
+			
+			bb_multimesh.mesh = quad
+			for i in range(transforms.size()):
+				bb_multimesh.set_instance_transform(i, transforms[i])
+				
+			billboard_mmi.multimesh = bb_multimesh
+			billboard_mmi.visibility_range_begin = visibility_distance
+			billboard_mmi.visibility_range_begin_margin = 300.0
+			billboard_mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			billboard_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # No shadows for billboards
+			
+			add_child(billboard_mmi)
 			
 	_is_generating = false
-	print("ForestGenerator: All chunks finalized. Dynamic shadow system active.")
+	print("ForestGenerator: All chunks finalized with Billboard LODs.")
 
 func _process(delta: float) -> void:
-	if _chunks.is_empty(): return
-	
-	_shadow_timer += delta
-	if _shadow_timer >= shadow_update_interval:
-		_shadow_timer = 0.0
-		_update_chunk_shadows()
-
-func _update_chunk_shadows() -> void:
-	var cam = get_viewport().get_camera_3d()
-	if not cam: return
-	
-	var cam_pos = cam.global_position
-	var dist_sq = shadow_distance * shadow_distance
-	
-	for i in range(_chunks.size()):
-		var mmi = _chunks[i]
-		if not is_instance_valid(mmi): continue
-		
-		# Use squared distance for performance (avoids square root)
-		if _chunk_centers[i].distance_squared_to(cam_pos) < dist_sq:
-			if mmi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_ON:
-				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-		else:
-			if mmi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
-				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pass # Removed manual shadow updates
 
 func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
 	if node is MeshInstance3D:

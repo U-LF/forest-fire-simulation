@@ -101,14 +101,15 @@ environment = SubResource("Environment_main")
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=191772709]
 transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
 shadow_enabled = true
-shadow_bias = 0.04
-shadow_normal_bias = 4.0
-shadow_blur = 1.5
-directional_shadow_split_1 = 0.04
-directional_shadow_split_2 = 0.1
-directional_shadow_split_3 = 0.25
+shadow_bias = 0.05
+shadow_normal_bias = 8.0
+shadow_blur = 3.0
+directional_shadow_split_1 = 0.15
+directional_shadow_split_2 = 0.3
+directional_shadow_split_3 = 0.6
 directional_shadow_blend_splits = true
-directional_shadow_max_distance = 2000.0
+directional_shadow_max_distance = 600.0
+directional_shadow_pancaking = true
 
 [node name="MoonLight" type="DirectionalLight3D" parent="." unique_id=153534737]
 transform = Transform3D(0.866025, 0.433013, -0.25, 0, -0.5, -0.866025, -0.5, 0.75, -0.433012, 0, 0, 0)
@@ -116,9 +117,14 @@ light_color = Color(0.6, 0.7, 1, 1)
 light_energy = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
-shadow_normal_bias = 4.0
-shadow_blur = 2.0
-directional_shadow_max_distance = 1500.0
+shadow_normal_bias = 8.0
+shadow_blur = 3.0
+directional_shadow_split_1 = 0.15
+directional_shadow_split_2 = 0.3
+directional_shadow_split_3 = 0.6
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 500.0
+directional_shadow_pancaking = true
 
 [node name="LightningLight" type="DirectionalLight3D" parent="." unique_id=1495172572]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 200, 0)
@@ -149,7 +155,7 @@ shape = SubResource("BoxShape3D_terrain_col")
 
 [node name="RainParticles" type="GPUParticles3D" parent="." unique_id=1174609481]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 180, 0)
-amount = 50000
+amount = 2500
 lifetime = 10.0
 visibility_aabb = AABB(-2000, -180, -2000, 4000, 200, 4000)
 process_material = SubResource("ParticleProcessMaterial_rain")
