@@ -1,10 +1,20 @@
 extends Node3D
 
-@export var terrain: StaticBody3D # Must point to the Terrain node with terrain_generator.gd
+@export var terrain: StaticBody3D
 @export var tree_scenes: Array[PackedScene]
-@export var total_tree_count: int = 50000
+@export var total_tree_count: int = 400000
 @export var chunk_size: float = 500.0
 @export var visibility_distance: float = 2000.0
+@export var shadow_distance: float = 1200.0 # Chunks further than this from CAMERA won't cast shadows
+@export var shadow_update_interval: float = 0.5 # Seconds between shadow checks
+
+# Spatial indexing for fire logic
+var spatial_index: Dictionary = {}
+var _chunks: Array[MultiMeshInstance3D] = []
+var _chunk_centers: Array[Vector3] = []
+var _shadow_timer: float = 0.0
+
+var _is_generating: bool = false
 
 func _ready():
 	if not terrain:
@@ -12,17 +22,17 @@ func _ready():
 		return
 		
 	if not terrain.macro_image:
-		print("ForestGenerator: Waiting for terrain_ready signal...")
 		await terrain.terrain_ready
 		
-	if not terrain.macro_image:
-		push_error("ForestGenerator: Terrain macro_image is still null after initialization!")
-		return
-		
-	_generate_forest_chunked()
+	# Start generation on a background thread
+	# Using WorkerThreadPool for Godot 4 best practices
+	WorkerThreadPool.add_task(_generate_forest_threaded)
 
-func _generate_forest_chunked():
-	print("Generating chunked forest...")
+func _generate_forest_threaded():
+	if _is_generating: return
+	_is_generating = true
+	
+	print("ForestGenerator: Threaded generation started...")
 	
 	var terrain_width = terrain.terrain_size.x
 	var terrain_depth = terrain.terrain_size.y
@@ -33,7 +43,7 @@ func _generate_forest_chunked():
 	var rows = ceil(terrain_depth / chunk_size)
 	
 	# 1. Prepare data structures
-	var tree_data = [] # Array of Arrays: [tree_type_index][chunk_index] = Array[Transform3D]
+	var tree_data = [] # [tree_type][chunk_idx] = Array[Transform3D]
 	for i in range(tree_scenes.size()):
 		var type_chunks = []
 		type_chunks.resize(cols * rows)
@@ -41,30 +51,44 @@ func _generate_forest_chunked():
 			type_chunks[j] = []
 		tree_data.append(type_chunks)
 	
-	# 2. Extract meshes from scenes
+	# Clear previous spatial index
+	spatial_index.clear()
+
+	# 2. Extract meshes and materials
 	var tree_meshes = []
+	var tree_material_arrays = [] # [tree_type] = Array[Material]
 	for scene in tree_scenes:
 		if not scene: 
 			tree_meshes.append(null)
+			tree_material_arrays.append([])
 			continue
 		var node = scene.instantiate()
-		var mesh = _find_first_mesh(node)
+		var mesh_inst = _find_first_mesh_instance(node)
+		if mesh_inst:
+			var mesh = mesh_inst.mesh
+			tree_meshes.append(mesh)
+			var surface_mats = []
+			for s in range(mesh.get_surface_count()):
+				surface_mats.append(mesh_inst.get_active_material(s))
+			tree_material_arrays.append(surface_mats)
+		else:
+			tree_meshes.append(null)
+			tree_material_arrays.append([])
 		node.queue_free()
-		tree_meshes.append(mesh)
 
-	# 3. Scatter trees into data structure
+	# 3. Scatter trees
 	var rng = RandomNumberGenerator.new()
 	rng.randomize()
 	
 	var count_per_type = total_tree_count / tree_scenes.size()
-	var buffer = 10.0
+	var buffer = 15.0
 	
 	for type_idx in range(tree_scenes.size()):
 		if not tree_meshes[type_idx]: continue
 		
 		var placed = 0
 		var attempts = 0
-		var max_attempts = count_per_type * 4
+		var max_attempts = count_per_type * 12
 		
 		while placed < count_per_type and attempts < max_attempts:
 			attempts += 1
@@ -74,42 +98,95 @@ func _generate_forest_chunked():
 			if abs(x) > half_width - buffer or abs(z) > half_depth - buffer: continue
 			
 			var normal = terrain.get_normal_at(x, z)
-			if normal.dot(Vector3.UP) < 0.85: continue
+			if normal.dot(Vector3.UP) < 0.78: continue
 			
 			var y = terrain.get_height_at(x, z)
+			# if y < 0.1: continue # Allow trees in valleys, but not underwater
 			
-			# Calculate chunk index
 			var local_x = x + half_width
 			var local_z = z + half_depth
-			var c = int(local_x / chunk_size)
-			var r = int(local_z / chunk_size)
-			c = clamp(c, 0, cols - 1)
-			r = clamp(r, 0, rows - 1)
+			var c = clamp(int(local_x / chunk_size), 0, cols - 1)
+			var r = clamp(int(local_z / chunk_size), 0, rows - 1)
 			var chunk_idx = r * cols + c
 			
-			# Create transform
 			var t = Transform3D()
 			t = t.rotated(Vector3.UP, rng.randf_range(0, TAU))
-			var up_vector = normal.lerp(Vector3.UP, 0.5).normalized()
+			var up_vector = normal.lerp(Vector3.UP, 0.6).normalized()
 			var forward = Vector3.FORWARD
 			if abs(forward.dot(up_vector)) > 0.99: forward = Vector3.RIGHT
 			var right = up_vector.cross(forward).normalized()
 			forward = right.cross(up_vector).normalized()
 			t.basis = Basis(right, up_vector, forward) * t.basis
-			var scale = rng.randf_range(4.0, 8.0)
+			var scale = rng.randf_range(5.0, 9.0)
 			t.basis = t.basis.scaled(Vector3(scale, scale, scale))
-			t.origin = Vector3(x, y - 0.5, z)
+			t.origin = Vector3(x, y - 0.4, z)
 			
 			tree_data[type_idx][chunk_idx].append(t)
+			
+			# Store in Spatial Index for Fire
+			var grid_key = Vector2i(c, r)
+			if not spatial_index.has(grid_key):
+				spatial_index[grid_key] = []
+			
+			# We'll use this data later for fire spread
+			spatial_index[grid_key].append({
+				"pos": t.origin,
+				"type": type_idx,
+				"state": 0 # 0=Healthy, 1=Burning, 2=Burnt
+			})
+			
 			placed += 1
 
-	# 4. Instantiate MultiMeshInstances for each chunk
+	# 4. Finalize on Main Thread
+	# We must instantiate nodes on the main thread
+	call_deferred("_finalize_generation", tree_meshes, tree_material_arrays, tree_data, cols, rows)
+
+func _finalize_generation(meshes, material_arrays, data, cols, rows):
+	var wind_shader = load("res://resources/tree_wind.gdshader")
+	_chunks.clear()
+	_chunk_centers.clear()
+	
 	for type_idx in range(tree_scenes.size()):
-		var mesh = tree_meshes[type_idx]
-		if not mesh: continue
+		var original_mesh = meshes[type_idx]
+		var orig_mats = material_arrays[type_idx]
+		if not original_mesh: continue
+		
+		# MultiMeshInstance3D does not support surface overrides.
+		# We must duplicate the mesh and set materials on the surfaces of the duplicate.
+		var mesh = original_mesh.duplicate()
+		
+		for s in range(orig_mats.size()):
+			var orig_mat = orig_mats[s]
+			var wind_mat = ShaderMaterial.new()
+			wind_mat.shader = wind_shader
+			
+			var tex = null
+			var color = Color.WHITE
+			var alpha_scissor = 0.5
+			
+			if orig_mat:
+				if "albedo_texture" in orig_mat:
+					tex = orig_mat.albedo_texture
+				if "albedo_color" in orig_mat:
+					color = orig_mat.albedo_color
+				if "alpha_scissor_threshold" in orig_mat:
+					alpha_scissor = orig_mat.alpha_scissor_threshold
+					
+				if orig_mat is ShaderMaterial:
+					tex = orig_mat.get_shader_parameter("albedo_texture")
+					if not tex: tex = orig_mat.get_shader_parameter("main_texture")
+					var s_color = orig_mat.get_shader_parameter("albedo_color")
+					if s_color: color = s_color
+			
+			wind_mat.set_shader_parameter("albedo_texture", tex)
+			wind_mat.set_shader_parameter("albedo_color", color)
+			wind_mat.set_shader_parameter("alpha_scissor_threshold", alpha_scissor)
+			
+			# Set the material on the mesh surface
+			mesh.surface_set_material(s, wind_mat)
 		
 		for chunk_idx in range(cols * rows):
-			var transforms = tree_data[type_idx][chunk_idx]
+			var transforms = data[type_idx][chunk_idx]
 			if transforms.is_empty(): continue
 			
 			var multimesh = MultiMesh.new()
@@ -123,22 +200,71 @@ func _generate_forest_chunked():
 			var mmi = MultiMeshInstance3D.new()
 			mmi.multimesh = multimesh
 			
-			# Optimization: Visibility Range (Culling far chunks)
+			# Dynamic Shadow Logic
+			# We estimate chunk center to decide on shadows
+			var r = int(chunk_idx) / int(cols)
+			var c = int(chunk_idx) % int(cols)
+			var chunk_center = Vector3(
+				(float(c) * chunk_size) - (terrain.terrain_size.x / 2.0) + (chunk_size / 2.0),
+				0,
+				(float(r) * chunk_size) - (terrain.terrain_size.y / 2.0) + (chunk_size / 2.0)
+			)
+			
+			_chunks.append(mmi)
+			_chunk_centers.append(chunk_center)
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			
 			mmi.visibility_range_end = visibility_distance
-			mmi.visibility_range_end_margin = 200.0 # Soft fade margin
+			mmi.visibility_range_end_margin = 300.0
 			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 			
 			add_child(mmi)
 			
-	print("Chunked forest generation complete.")
+	_is_generating = false
+	print("ForestGenerator: All chunks finalized. Dynamic shadow system active.")
 
-func _find_first_mesh(node: Node) -> Mesh:
-	if node is MeshInstance3D and node.mesh:
-		return node.mesh
+func _process(delta: float) -> void:
+	if _chunks.is_empty(): return
+	
+	_shadow_timer += delta
+	if _shadow_timer >= shadow_update_interval:
+		_shadow_timer = 0.0
+		_update_chunk_shadows()
+
+func _update_chunk_shadows() -> void:
+	var cam = get_viewport().get_camera_3d()
+	if not cam: return
+	
+	var cam_pos = cam.global_position
+	var dist_sq = shadow_distance * shadow_distance
+	
+	for i in range(_chunks.size()):
+		var mmi = _chunks[i]
+		if not is_instance_valid(mmi): continue
+		
+		# Use squared distance for performance (avoids square root)
+		if _chunk_centers[i].distance_squared_to(cam_pos) < dist_sq:
+			if mmi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_ON:
+				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		else:
+			if mmi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
+	if node is MeshInstance3D:
+		return node
 	for child in node.get_children():
-		var mesh = _find_first_mesh(child)
-		if mesh: return mesh
+		var found = _find_first_mesh_instance(child)
+		if found: return found
 	return null
+
+# Helper function for future fire logic
+func get_trees_in_chunk(world_pos: Vector3) -> Array:
+	var half_width = terrain.terrain_size.x / 2.0
+	var half_depth = terrain.terrain_size.y / 2.0
+	var c = int((world_pos.x + half_width) / chunk_size)
+	var r = int((world_pos.z + half_depth) / chunk_size)
+	return spatial_index.get(Vector2i(c, r), [])
 
 func _scatter_trees(multimesh: MultiMesh):
 	var valid_count = 0
