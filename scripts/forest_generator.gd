@@ -141,6 +141,11 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 	var wind_shader = load("res://resources/tree_wind.gdshader")
 	_chunks.clear()
 	
+	var fire_mgr = get_parent().get_node_or_null("FireManager")
+	var burn_map = null
+	if fire_mgr:
+		burn_map = fire_mgr.get_burn_map()
+	
 	for type_idx in range(tree_scenes.size()):
 		var original_mesh = meshes[type_idx]
 		var orig_mats = material_arrays[type_idx]
@@ -176,6 +181,9 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 			wind_mat.set_shader_parameter("albedo_texture", tex)
 			wind_mat.set_shader_parameter("albedo_color", color)
 			wind_mat.set_shader_parameter("alpha_scissor_threshold", alpha_scissor)
+			
+			if burn_map:
+				wind_mat.set_shader_parameter("burn_map", burn_map)
 			
 			# Set the material on the mesh surface
 			mesh.surface_set_material(s, wind_mat)

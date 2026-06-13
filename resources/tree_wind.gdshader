@@ -8,9 +8,14 @@ uniform float wind_strength : hint_range(0.0, 2.0) = 0.2;
 uniform float wind_speed : hint_range(0.0, 5.0) = 1.0;
 uniform float wind_scale : hint_range(0.0, 1.0) = 0.1;
 
+uniform sampler2D burn_map : filter_linear;
+uniform float terrain_size = 4000.0;
+varying vec3 v_world_pos;
+
 void vertex() {
     // World-space wind logic
     vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    v_world_pos = world_pos;
     
     // Height-based influence: Only move the top of the tree
     float height_factor = smoothstep(0.0, 12.0, VERTEX.y);
@@ -25,6 +30,14 @@ void vertex() {
 void fragment() {
     vec4 albedo_tex = texture(albedo_texture, UV);
     vec4 final_color = albedo_tex * albedo_color * COLOR;
+    
+    // Read char level from global burn map
+    vec2 uv_burn = (v_world_pos.xz / terrain_size) + 0.5;
+    vec4 burn_state = texture(burn_map, uv_burn);
+    float char_lvl = burn_state.g;
+    
+    // Apply charring effect (turn tree black where burnt)
+    final_color.rgb = mix(final_color.rgb, vec3(0.02, 0.02, 0.02), char_lvl);
     
     ALBEDO = final_color.rgb;
     ALPHA = final_color.a;

@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
 uniform float terrain_scale = 4000.0;
+uniform float terrain_size = 4000.0;
 uniform float height_scale = 120.0;
 
 // Noise textures for displacement
@@ -14,6 +15,8 @@ uniform vec3 color_grass_dark = vec3(0.08, 0.15, 0.05);
 uniform vec3 color_rock_base = vec3(0.35, 0.33, 0.30);
 uniform vec3 color_rock_dark = vec3(0.20, 0.18, 0.15);
 uniform vec3 color_dirt = vec3(0.25, 0.20, 0.12);
+
+uniform sampler2D burn_map : filter_linear;
 
 varying float v_height;
 varying vec3 v_normal;
@@ -96,6 +99,14 @@ void fragment() {
     // Add a slight darkening based on height to simulate atmospheric depth in valleys
     float height_factor = clamp(v_height / height_scale, 0.0, 1.0);
     final_color = mix(final_color * 0.8, final_color, height_factor);
+    
+    // Read raw values from global burn map
+    vec2 uv_burn = (v_world_pos.xz / terrain_size) + 0.5;
+    vec4 burn_state = texture(burn_map, uv_burn);
+    float char_lvl = burn_state.g;
+    
+    // Apply charring effect (turn terrain pitch black where burnt)
+    final_color = mix(final_color, vec3(0.05, 0.05, 0.05), char_lvl);
     
     ALBEDO = final_color;
     ROUGHNESS = mix(0.8, 0.95, detail); // Break up reflections

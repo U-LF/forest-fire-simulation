@@ -59,6 +59,7 @@ func _ready() -> void:
 	
 	terrain_material.set_shader_parameter("terrain_scale", terrain_scale)
 	terrain_material.set_shader_parameter("height_scale", height_scale)
+	terrain_material.set_shader_parameter("terrain_size", terrain_size.x)
 		
 	var macro_tex = terrain_material.get_shader_parameter("macro_noise")
 	var micro_tex = terrain_material.get_shader_parameter("micro_noise")
