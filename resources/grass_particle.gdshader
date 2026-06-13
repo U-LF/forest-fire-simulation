@@ -48,7 +48,7 @@ void process() {
     vec3 normal = normalize(vec3(hL - hR, 2.0 * e, hD - hU));
     float slope = dot(normal, vec3(0.0, 1.0, 0.0));
 
-	if (slope < 0.7 || h < 0.0 || abs(pos.x) > 1995.0 || abs(pos.z) > 1995.0) {
+	if (slope < 0.85 || h < 0.0 || abs(pos.x) > 1995.0 || abs(pos.z) > 1995.0) {
 		ACTIVE = false;
 	} else {
 		ACTIVE = true;

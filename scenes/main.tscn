@@ -175,5 +175,3 @@ tree_scenes = Array[PackedScene]([ExtResource("7_tree_1"), ExtResource("8_tree_2
 script = ExtResource("11_grass_mgr")
 terrain = NodePath("../Terrain")
 grass_scene = ExtResource("12_grass")
-grid_resolution = 650
-spacing = 1.0

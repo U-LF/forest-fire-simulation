@@ -76,7 +76,7 @@ func _generate_forest_threaded():
 	var rng = RandomNumberGenerator.new()
 	rng.randomize()
 	
-	var count_per_type = total_tree_count / tree_scenes.size()
+	var count_per_type = total_tree_count / float(tree_scenes.size())
 	var buffer = 15.0
 	
 	for type_idx in range(tree_scenes.size()):
@@ -97,7 +97,6 @@ func _generate_forest_threaded():
 			if normal.dot(Vector3.UP) < 0.78: continue
 			
 			var y = terrain.get_height_at(x, z)
-			# if y < 0.1: continue # Allow trees in valleys, but not underwater
 			
 			var local_x = x + half_width
 			var local_z = z + half_depth
@@ -113,8 +112,8 @@ func _generate_forest_threaded():
 			var right = up_vector.cross(forward).normalized()
 			forward = right.cross(up_vector).normalized()
 			t.basis = Basis(right, up_vector, forward) * t.basis
-			var scale = rng.randf_range(5.0, 9.0)
-			t.basis = t.basis.scaled(Vector3(scale, scale, scale))
+			var tree_scale = rng.randf_range(5.0, 9.0)
+			t.basis = t.basis.scaled(Vector3(tree_scale, tree_scale, tree_scale))
 			t.origin = Vector3(x, y - 0.4, z)
 			
 			tree_data[type_idx][chunk_idx].append(t)
@@ -242,7 +241,7 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 	_is_generating = false
 	print("ForestGenerator: All chunks finalized with Billboard LODs.")
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	pass # Removed manual shadow updates
 
 func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
@@ -261,7 +260,7 @@ func get_trees_in_chunk(world_pos: Vector3) -> Array:
 	var r = int((world_pos.z + half_depth) / chunk_size)
 	return spatial_index.get(Vector2i(c, r), [])
 
-func _scatter_trees(multimesh: MultiMesh):
+func _scatter_trees_logic(multimesh: MultiMesh):
 	var valid_count = 0
 	var attempts = 0
 	var max_attempts = multimesh.instance_count * 5
@@ -307,8 +306,8 @@ func _scatter_trees(multimesh: MultiMesh):
 		t.basis = Basis(right, up_vector, forward) * t.basis
 		
 		# Apply random scale (increased to match the massive 1000x1000 terrain)
-		var scale = rng.randf_range(4.0, 8.0)
-		t.basis = t.basis.scaled(Vector3(scale, scale, scale))
+		var tree_scale = rng.randf_range(4.0, 8.0)
+		t.basis = t.basis.scaled(Vector3(tree_scale, tree_scale, tree_scale))
 		
 		# Place trees slightly into the terrain for a more grounded look
 		t.origin = Vector3(x, y - 0.5, z)
