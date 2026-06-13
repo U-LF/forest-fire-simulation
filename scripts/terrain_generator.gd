@@ -5,7 +5,7 @@ signal terrain_ready
 @export var terrain_material: ShaderMaterial
 @export var mesh_instance: MeshInstance3D
 @export var collision_shape: CollisionShape3D
-@export var terrain_size: Vector2 = Vector2(2000, 2000)
+@export var terrain_size: Vector2 = Vector2(4000, 4000)
 @export var terrain_scale: float = 1400.0
 @export var height_scale: float = 120.0
 
