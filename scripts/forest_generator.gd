@@ -2,9 +2,9 @@ extends Node3D
 
 @export var terrain: StaticBody3D
 @export var tree_scenes: Array[PackedScene]
-@export var total_tree_count: int = 400000
-@export var chunk_size: float = 500.0
-@export var visibility_distance: float = 2000.0
+@export var total_tree_count: int = 500000
+@export var chunk_size: float = 250.0
+@export var visibility_distance: float = 1250.0
 
 # Spatial indexing for fire logic
 var spatial_index: Dictionary = {}
@@ -226,7 +226,7 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 				if m is StandardMaterial3D: color = m.albedo_color
 			bb_mat.albedo_color = color.lerp(Color.BLACK, 0.2) # Darken slightly for distance
 			bb_mat.roughness = 0.8
-			bb_mat.specular = 0.1
+			bb_mat.metallic_specular = 0.1
 			quad.material = bb_mat
 			
 			bb_multimesh.mesh = quad
