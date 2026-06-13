@@ -63,8 +63,10 @@ func _update_sun(progress: float) -> void:
 	# Light energy logic
 	if sun_height > 0.0:
 		sun_light.light_energy = smoothstep(0.0, 0.2, sun_height) * 1.2
+		sun_light.shadow_enabled = true
 	else:
 		sun_light.light_energy = 0.0
+		sun_light.shadow_enabled = false
 		
 	# Darken sun light based on cloud coverage
 	sun_light.light_energy *= (1.0 - (cloud_coverage * 0.8))
@@ -82,8 +84,10 @@ func _update_sun(progress: float) -> void:
 		var moon_height = sin(angle - PI)
 		if moon_height > 0.0:
 			moon_light.light_energy = smoothstep(0.0, 0.2, moon_height) * 0.5
+			moon_light.shadow_enabled = true
 		else:
 			moon_light.light_energy = 0.0
+			moon_light.shadow_enabled = false
 		
 		# Darken moon light based on cloud coverage
 		moon_light.light_energy *= (1.0 - (cloud_coverage * 0.9))

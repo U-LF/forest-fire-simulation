@@ -27,7 +27,35 @@ func _ready() -> void:
 		return
 
 	if mesh_instance.mesh is PlaneMesh:
-		mesh_instance.mesh.size = terrain_size
+		# Implement Terrain Chunking for Frustum Culling
+		var chunk_count = 8 # 8x8 grid = 64 chunks
+		var c_width = terrain_size.x / float(chunk_count)
+		var c_depth = terrain_size.y / float(chunk_count)
+		var base_mesh = mesh_instance.mesh as PlaneMesh
+		var sub_w = max(1, base_mesh.subdivide_width / chunk_count)
+		var sub_d = max(1, base_mesh.subdivide_depth / chunk_count)
+		
+		mesh_instance.visible = false # Hide monolithic mesh
+		
+		for z in range(chunk_count):
+			for x in range(chunk_count):
+				var c_mesh = PlaneMesh.new()
+				c_mesh.size = Vector2(c_width, c_depth)
+				c_mesh.subdivide_width = sub_w
+				c_mesh.subdivide_depth = sub_d
+				
+				var c_inst = MeshInstance3D.new()
+				c_inst.mesh = c_mesh
+				c_inst.set_surface_override_material(0, terrain_material)
+				
+				var pos_x = -terrain_size.x / 2.0 + (x + 0.5) * c_width
+				var pos_z = -terrain_size.y / 2.0 + (z + 0.5) * c_depth
+				c_inst.position = Vector3(pos_x, 0, pos_z)
+				c_inst.extra_cull_margin = 1000.0
+				
+				add_child(c_inst) # Parent to the Terrain body instead of the hidden mesh_instance
+		
+		base_mesh.size = terrain_size
 	
 	terrain_material.set_shader_parameter("terrain_scale", terrain_scale)
 	terrain_material.set_shader_parameter("height_scale", height_scale)

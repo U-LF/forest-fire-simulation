@@ -118,17 +118,18 @@ func _generate_forest_threaded():
 			
 			tree_data[type_idx][chunk_idx].append(t)
 			
-			# Store in Spatial Index for Fire
+			# Store in Spatial Index for Fire using packed arrays for cache-locality
 			var grid_key = Vector2i(c, r)
 			if not spatial_index.has(grid_key):
-				spatial_index[grid_key] = []
+				spatial_index[grid_key] = {
+					"positions": PackedVector3Array(),
+					"types": PackedInt32Array(),
+					"states": PackedByteArray()
+				}
 			
-			# We'll use this data later for fire spread
-			spatial_index[grid_key].append({
-				"pos": t.origin,
-				"type": type_idx,
-				"state": 0 # 0=Healthy, 1=Burning, 2=Burnt
-			})
+			spatial_index[grid_key]["positions"].append(t.origin)
+			spatial_index[grid_key]["types"].append(type_idx)
+			spatial_index[grid_key]["states"].append(0)
 			
 			placed += 1
 
@@ -240,6 +241,10 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 			
 			add_child(billboard_mmi)
 			
+			# Time-slicing initialization to prevent massive frame hitches
+			if chunk_idx % 4 == 0:
+				await get_tree().process_frame
+			
 	_is_generating = false
 	print("ForestGenerator: All chunks finalized with Billboard LODs.")
 
@@ -255,12 +260,16 @@ func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
 	return null
 
 # Helper function for future fire logic
-func get_trees_in_chunk(world_pos: Vector3) -> Array:
+func get_trees_in_chunk(world_pos: Vector3) -> Dictionary:
 	var half_width = terrain.terrain_size.x / 2.0
 	var half_depth = terrain.terrain_size.y / 2.0
 	var c = int((world_pos.x + half_width) / chunk_size)
 	var r = int((world_pos.z + half_depth) / chunk_size)
-	return spatial_index.get(Vector2i(c, r), [])
+	return spatial_index.get(Vector2i(c, r), {
+		"positions": PackedVector3Array(),
+		"types": PackedInt32Array(),
+		"states": PackedByteArray()
+	})
 
 func _scatter_trees_logic(multimesh: MultiMesh):
 	var valid_count = 0
