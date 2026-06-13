@@ -5,13 +5,13 @@ signal terrain_ready
 @export var terrain_material: ShaderMaterial
 @export var mesh_instance: MeshInstance3D
 @export var collision_shape: CollisionShape3D
+@export var terrain_size: Vector2 = Vector2(2000, 2000)
+@export var terrain_scale: float = 1400.0
+@export var height_scale: float = 120.0
 
 var macro_image: Image
 var image_width: int = 1024
 var image_height: int = 1024
-
-var terrain_scale: float = 1000.0
-var height_scale: float = 140.0
 
 func _ready() -> void:
 	randomize() # Ensure different results each launch
@@ -25,6 +25,14 @@ func _ready() -> void:
 		push_error("TerrainGenerator: mesh_instance or collision_shape is missing!")
 		emit_signal("terrain_ready")
 		return
+
+	# Sync Mesh dimensions
+	if mesh_instance.mesh is PlaneMesh:
+		mesh_instance.mesh.size = terrain_size
+	
+	# Sync Shader parameters
+	terrain_material.set_shader_parameter("terrain_scale", terrain_scale)
+	terrain_material.set_shader_parameter("height_scale", height_scale)
 		
 	var macro_tex = terrain_material.get_shader_parameter("macro_noise")
 	var micro_tex = terrain_material.get_shader_parameter("micro_noise")
@@ -48,12 +56,6 @@ func _ready() -> void:
 		else:
 			push_error("TerrainGenerator: Failed to get image from macro_noise texture after waiting!")
 			
-	var h_scale = terrain_material.get_shader_parameter("height_scale")
-	if h_scale != null: height_scale = float(h_scale)
-	
-	var t_scale = terrain_material.get_shader_parameter("terrain_scale")
-	if t_scale != null: terrain_scale = float(t_scale)
-	
 	_generate_collision_heightmap()
 	
 	# Signal to the forest generator that it's safe to read the heightmap

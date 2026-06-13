@@ -3,6 +3,7 @@ extends Node3D
 @export var day_night_cycle: Node
 @export var rain_particles: GPUParticles3D
 @export var lightning_light: DirectionalLight3D
+@export var terrain: Node3D
 
 @export var check_interval: float = 20.0 # Evaluate weather shifts more frequently
 var _time_since_last_check: float = 0.0
@@ -18,6 +19,19 @@ var rain_shift_speed: float = 0.05
 func _ready() -> void:
 	if rain_particles:
 		rain_particles.emitting = false
+		if terrain:
+			var size = terrain.terrain_size
+			var process_mat = rain_particles.process_material as ParticleProcessMaterial
+			if process_mat:
+				# Use duplicate to avoid affecting other materials if shared
+				rain_particles.process_material = process_mat.duplicate()
+				(rain_particles.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(size.x / 2.0, 2.0, size.y / 2.0)
+			
+			rain_particles.visibility_aabb = AABB(
+				Vector3(-size.x / 2.0, -180.0, -size.y / 2.0),
+				Vector3(size.x, 200.0, size.y)
+			)
+
 	if lightning_light:
 		lightning_light.light_energy = 0.0
 	
@@ -118,7 +132,18 @@ func _handle_lightning(delta: float) -> void:
 		_spawn_lightning_strike()
 
 func _spawn_lightning_strike() -> void:
-	var strike_pos = Vector3(randf_range(-40, 40), 0, randf_range(-40, 40))
+	var range_x = 40.0
+	var range_z = 40.0
+	
+	if terrain:
+		range_x = terrain.terrain_size.x / 2.0
+		range_z = terrain.terrain_size.y / 2.0
+		
+	var strike_pos = Vector3(randf_range(-range_x, range_x), 0, randf_range(-range_z, range_z))
+	
+	if terrain:
+		strike_pos.y = terrain.get_height_at(strike_pos.x, strike_pos.z)
+		
 	var start_pos = strike_pos + Vector3(0, 100, 0) # Start high in the clouds
 	
 	# Generate jagged points

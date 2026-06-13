@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-uniform float terrain_scale = 1000.0;
+uniform float terrain_scale = 4000.0;
 uniform float height_scale = 120.0;
 
 // Noise textures for displacement

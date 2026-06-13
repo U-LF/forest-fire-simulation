@@ -55,10 +55,11 @@ func _process(delta: float) -> void:
 	position += _velocity * delta
 	
 	# --- Bounds Collision ---
-	# Terrain is 1000x1000, centered at (0,0)
-	var half_size = 500.0
-	global_position.x = clamp(global_position.x, -half_size, half_size)
-	global_position.z = clamp(global_position.z, -half_size, half_size)
+	if terrain:
+		var half_x = terrain.terrain_size.x / 2.0
+		var half_z = terrain.terrain_size.y / 2.0
+		global_position.x = clamp(global_position.x, -half_x, half_x)
+		global_position.z = clamp(global_position.z, -half_z, half_z)
 	
 	# --- Ground Collision ---
 	if terrain and terrain.macro_image:

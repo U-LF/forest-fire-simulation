@@ -60,19 +60,22 @@ func _scatter_trees(multimesh: MultiMesh):
 	var attempts = 0
 	var max_attempts = multimesh.instance_count * 5
 	
-	# We know terrain is 1000x1000 from -500 to 500
-	var extent = 500.0
+	# Determine extent from terrain size
+	var extent_x = terrain.terrain_size.x / 2.0
+	var extent_z = terrain.terrain_size.y / 2.0
+	var buffer = 10.0
+	
 	var rng = RandomNumberGenerator.new()
 	rng.randomize()
 	
 	while valid_count < multimesh.instance_count and attempts < max_attempts:
 		attempts += 1
 		
-		var x = rng.randf_range(-extent, extent)
-		var z = rng.randf_range(-extent, extent)
+		var x = rng.randf_range(-extent_x, extent_x)
+		var z = rng.randf_range(-extent_z, extent_z)
 		
 		# Don't spawn too close to the absolute edge
-		if abs(x) > 490 or abs(z) > 490: continue
+		if abs(x) > extent_x - buffer or abs(z) > extent_z - buffer: continue
 		
 		var normal = terrain.get_normal_at(x, z)
 		var slope = normal.dot(Vector3.UP)

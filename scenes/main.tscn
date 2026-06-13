@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://be5j8m6v8p2k5"]
+[gd_scene format=3 uid="uid://be5j8m6v8p2k5"]
 
 [ext_resource type="Material" uid="uid://m80rmki4fbox" path="res://sky/examples/night_sky.tres" id="1_sky"]
 [ext_resource type="Script" uid="uid://b0uqiw3w137el" path="res://scripts/free_fly_camera.gd" id="2_camera"]
@@ -24,22 +24,29 @@ ambient_light_energy = 0.4
 tonemap_mode = 2
 tonemap_exposure = 0.9
 glow_enabled = true
-glow_bloom = 0.1
 glow_strength = 0.8
+glow_bloom = 0.1
 fog_enabled = true
 fog_light_color = Color(0.8, 0.9, 1, 1)
 fog_density = 0.001
 fog_sky_affect = 0.5
-fog_height = 0.0
 fog_height_density = 0.1
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_water"]
+albedo_color = Color(0.1, 0.3, 0.5, 1)
+roughness = 0.2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_water"]
+material = SubResource("StandardMaterial3D_water")
+size = Vector2(50000, 50000)
+
 [sub_resource type="PlaneMesh" id="PlaneMesh_terrain"]
-size = Vector2(1000, 1000)
-subdivide_width = 200
-subdivide_depth = 200
+size = Vector2(4000, 4000)
+subdivide_width = 800
+subdivide_depth = 800
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_terrain_col"]
-size = Vector3(1000, 1, 1000)
+size = Vector3(4000, 1, 4000)
 
 [sub_resource type="Curve" id="Curve_rain_size"]
 _data = [Vector2(0, 0), 0.0, 5.0, 0, 0, Vector2(0.1, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.8), -0.2, 0.0, 0, 0]
@@ -50,7 +57,7 @@ curve = SubResource("Curve_rain_size")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain"]
 emission_shape = 3
-emission_box_extents = Vector3(500, 2, 500)
+emission_box_extents = Vector3(2000, 2, 2000)
 direction = Vector3(0, -1, 0)
 spread = 2.0
 initial_velocity_min = 30.0
@@ -73,22 +80,14 @@ height = 0.3
 radial_segments = 4
 rings = 4
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_water"]
-albedo_color = Color(0.1, 0.3, 0.5, 1)
-roughness = 0.2
-metallic_specular = 0.5
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_water"]
-material = SubResource("StandardMaterial3D_water")
-size = Vector2(10000, 10000)
-
 [node name="Main" type="Node3D" unique_id=2086738227]
 
-[node name="WeatherManager" type="Node3D" parent="." unique_id=751555145 node_paths=PackedStringArray("day_night_cycle", "rain_particles", "lightning_light")]
+[node name="WeatherManager" type="Node3D" parent="." unique_id=751555145 node_paths=PackedStringArray("day_night_cycle", "rain_particles", "lightning_light", "terrain")]
 script = ExtResource("4_weather")
 day_night_cycle = NodePath("../DayNightCycle")
 rain_particles = NodePath("../RainParticles")
 lightning_light = NodePath("../LightningLight")
+terrain = NodePath("../Terrain")
 
 [node name="DayNightCycle" type="Node" parent="." unique_id=1468792250 node_paths=PackedStringArray("sun_light", "moon_light", "world_environment")]
 script = ExtResource("3_cycle")
@@ -140,7 +139,7 @@ shape = SubResource("BoxShape3D_terrain_col")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 180, 0)
 amount = 50000
 lifetime = 10.0
-visibility_aabb = AABB(-500, -180, -500, 1000, 200, 1000)
+visibility_aabb = AABB(-2000, -180, -2000, 4000, 200, 4000)
 process_material = SubResource("ParticleProcessMaterial_rain")
 draw_pass_1 = SubResource("SphereMesh_rain")
 
@@ -153,6 +152,4 @@ terrain = NodePath("../Terrain")
 script = ExtResource("6_forest_gen")
 terrain = NodePath("../Terrain")
 tree_scenes = Array[PackedScene]([ExtResource("7_tree_1"), ExtResource("8_tree_2"), ExtResource("9_tree_3"), ExtResource("10_tree_4")])
-count_per_tree_type = 7500
-
-
+count_per_tree_type = 15000
