@@ -52,6 +52,12 @@ func _setup_particles_gpu() -> void:
 		wind_mat.set_shader_parameter("albedo_texture", tex)
 		wind_mat.set_shader_parameter("albedo_color", color)
 
+	var fire_mgr = get_parent().get_node_or_null("FireManager")
+	if fire_mgr:
+		if not fire_mgr.vp_a:
+			await fire_mgr.ready
+		wind_mat.set_shader_parameter("burn_map", fire_mgr.get_burn_map())
+
 	# 4. Create GPUParticles3D
 	_particles = GPUParticles3D.new()
 	_particles.amount = particle_count

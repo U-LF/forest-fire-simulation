@@ -28,6 +28,8 @@ func _ready() -> void:
 	vp_b.transparent_bg = true
 	vp_a.disable_3d = true
 	vp_b.disable_3d = true
+	vp_a.use_hdr_2d = true # CRITICAL: Enables 16-bit float precision so small values accumulate!
+	vp_b.use_hdr_2d = true
 	
 	add_child(vp_a)
 	add_child(vp_b)

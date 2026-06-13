@@ -51,12 +51,12 @@ void fragment() {
             fire = min(1.0, fire + 0.01); // Gradual flare up rather than instant explosion
         }
         
-        fuel -= 0.0005; // 2000 frames to burn out (~33 seconds)
-        char_lvl += 0.001; 
+        fuel -= 0.001; // 1000 frames to burn out (~16.6 seconds)
+        char_lvl += 0.002; 
         
         if (fuel <= 0.0) {
             fuel = 0.0;
-            fire -= 0.01; // Die down smoothly
+            fire -= 0.02; // Die down smoothly
         }
     }
     

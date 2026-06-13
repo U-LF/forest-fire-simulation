@@ -144,6 +144,8 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 	var fire_mgr = get_parent().get_node_or_null("FireManager")
 	var burn_map = null
 	if fire_mgr:
+		if not fire_mgr.vp_a:
+			await fire_mgr.ready
 		burn_map = fire_mgr.get_burn_map()
 	
 	for type_idx in range(tree_scenes.size()):
