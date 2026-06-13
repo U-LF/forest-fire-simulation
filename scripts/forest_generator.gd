@@ -213,7 +213,7 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 			quad.size = Vector2(1, 1) # Will be scaled by transforms
 			
 			var bb_mat = StandardMaterial3D.new()
-			bb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			bb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 			bb_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 			bb_mat.billboard_keep_scale = true
 			bb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
@@ -224,6 +224,8 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 				var m = material_arrays[type_idx][0]
 				if m is StandardMaterial3D: color = m.albedo_color
 			bb_mat.albedo_color = color.lerp(Color.BLACK, 0.2) # Darken slightly for distance
+			bb_mat.roughness = 0.8
+			bb_mat.specular = 0.1
 			quad.material = bb_mat
 			
 			bb_multimesh.mesh = quad
