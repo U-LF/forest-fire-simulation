@@ -142,6 +142,12 @@ func _update_sky(progress: float) -> void:
 		
 		# Sync fog color with sky bottom color
 		env.fog_light_color = current_bottom.lerp(cloud_darken, cloud_coverage * 0.5)
+		
+		# Dynamic Fog Density
+		# Fog is very thin on clear days, and thickens with clouds/rain
+		env.fog_density = lerp(0.00005, 0.002, cloud_coverage)
+		# Remove the thick permanent height fog unless it's cloudy
+		env.fog_height_density = lerp(0.0, 0.8, cloud_coverage)
 
 	_sky_material.set_shader_parameter("top_color", current_top)
 	_sky_material.set_shader_parameter("bottom_color", current_bottom)
