@@ -25,6 +25,34 @@ void vertex() {
     
     VERTEX.x += offset * height_factor;
     VERTEX.z += offset * height_factor * 0.5;
+    
+    // --- Structural Fire Damage (Deformation) ---
+    // Read char level from global burn map for vertex manipulation
+    vec2 uv_burn = (world_pos.xz / terrain_size) + 0.5;
+    vec4 burn_state = textureLod(burn_map, uv_burn, 0.0);
+    float char_lvl = burn_state.g;
+    
+    // Only deform when heavily charred
+    float damage = smoothstep(0.5, 1.0, char_lvl);
+    
+    if (damage > 0.0) {
+        // Generate a stable random angle based on the tree's world position
+        float rand_angle = fract(sin(world_pos.x * 12.9898 + world_pos.z * 78.233) * 43758.5453) * 6.2831853;
+        vec2 bend_dir = vec2(cos(rand_angle), sin(rand_angle));
+        
+        // Bend the tree over by offsetting X and Z based on height
+        // Using a curve (pow) makes the bend look more like a leaning trunk rather than a sheer
+        float bend_curve = pow(height_factor, 1.5);
+        float bend_amount = damage * bend_curve * 4.5; // Increased bend horizontally up to 4.5 units at the top
+        
+        VERTEX.x += bend_dir.x * bend_amount;
+        VERTEX.z += bend_dir.y * bend_amount;
+        
+        // Add a very slight sag to the outer branches without shrinking the overall volume
+        float dist_from_trunk = length(VERTEX.xz);
+        float droop = damage * height_factor * 0.8; 
+        VERTEX.y -= droop * smoothstep(1.0, 4.0, dist_from_trunk);
+    }
 }
 
 void fragment() {
@@ -37,8 +65,9 @@ void fragment() {
     float char_lvl = burn_state.g;
     float heat = burn_state.a;
     
-    // Apply charring effect (turn tree black where burnt)
-    final_color.rgb = mix(final_color.rgb, vec3(0.02, 0.02, 0.02), char_lvl);
+    // Base charring (deep charcoal) - Trees remain pure black when fully burned
+    vec3 charcoal = vec3(0.04, 0.03, 0.03);
+    final_color.rgb = mix(final_color.rgb, charcoal, char_lvl);
     
     // Ember effect: Only appear after heavily charred, and controlled by actual Heat
     float ember_phase = smoothstep(0.6, 0.9, char_lvl) * heat;

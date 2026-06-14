@@ -106,8 +106,34 @@ void fragment() {
     float char_lvl = burn_state.g;
     float heat = burn_state.a;
     
-    // Apply charring effect (turn terrain pitch black where burnt)
-    final_color = mix(final_color, vec3(0.05, 0.05, 0.05), char_lvl);
+    // Base charring (deep charcoal)
+    vec3 charcoal = vec3(0.06, 0.05, 0.05);
+    final_color = mix(final_color, charcoal, char_lvl);
+    
+    // Ash phase (reveals as heat dissipates)
+    float ash_presence = smoothstep(0.8, 1.0, char_lvl) * smoothstep(0.3, 0.0, heat);
+    
+    // Multi-directional wave function for organic, non-grid patches
+    vec2 p1 = v_world_pos.xz * 0.05;
+    vec2 p2 = vec2(p1.x * 0.8 + p1.y * 0.6, -p1.x * 0.6 + p1.y * 0.8) * 1.5;
+    vec2 p3 = vec2(p2.x * 0.5 - p2.y * 0.866, p2.x * 0.866 + p2.y * 0.5) * 2.0;
+    
+    float n1 = sin(p1.x) * cos(p1.y);
+    float n2 = sin(p2.x) * cos(p2.y);
+    float n3 = sin(p3.x) * cos(p3.y);
+    float combined_noise = (n1 + n2 + n3) / 3.0 * 0.5 + 0.5;
+    
+    // Aggressively tighten the mask: Ash only appears where combined noise is very high
+    float patch_mask = smoothstep(0.75, 0.85, combined_noise);
+    
+    float ash_mask = patch_mask * ash_presence;
+    
+    // Terrain naturally collects more ash in flatter areas, less on sheer cliffs
+    float settle_factor = smoothstep(0.8, 1.0, slope); // Only settle on very flat ground
+    ash_mask *= settle_factor;
+    
+    vec3 ash_color = vec3(0.35, 0.35, 0.38); // Darker, less obtrusive grey
+    final_color = mix(final_color, ash_color, ash_mask * 0.85); // Max 85% opacity
     
     // Ember effect: Delay until charred, fade using explicit heat
     float ember_phase = smoothstep(0.6, 0.9, char_lvl) * heat;
