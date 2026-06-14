@@ -1,28 +1,94 @@
+@tool
 extends Node3D
 
-@export var terrain: StaticBody3D
+@export var terrain: StaticBody3D:
+	set(value):
+		terrain = value
+		_update_capacity_info()
+
 @export var tree_scenes: Array[PackedScene]
-@export var total_tree_count: int = 450000
+
+@export_group("Forest Density")
+@export var total_tree_count: int = 450000:
+	set(value):
+		var limit = get_max_tree_capacity()
+		total_tree_count = clampi(value, 0, limit)
+
+var _max_tree_limit_cache: int = 0
+@export var max_tree_limit: int = 0:
+	get:
+		return _max_tree_limit_cache
+	set(value): 
+		# In tool mode, this setter might be called by the inspector.
+		# We want to ignore user input but allow our internal _update_capacity_info to set it.
+		# However, since we use _max_tree_limit_cache internally, we just block the export setter.
+		pass
+
+@export_group("Performance")
 @export var chunk_size: float = 250.0
 @export var visibility_distance: float = 1250.0
 
 # Spatial indexing for fire logic
+
 var spatial_index: Dictionary = {}
 var _chunks: Array[MultiMeshInstance3D] = []
 
 var _is_generating: bool = false
 
+func _enter_tree():
+	if Engine.is_editor_hint():
+		_update_capacity_info()
+
 func _ready():
+	_update_capacity_info()
+	if Engine.is_editor_hint():
+		return
+
 	if not terrain:
 		push_error("ForestGenerator: No terrain assigned!")
 		return
 		
 	if not terrain.macro_image:
 		await terrain.terrain_ready
-		
+	
 	# Start generation on a background thread
 	# Using WorkerThreadPool for Godot 4 best practices
 	WorkerThreadPool.add_task(_generate_forest_threaded)
+
+func _update_capacity_info():
+	_max_tree_limit_cache = get_max_tree_capacity()
+	# Trigger the setter for total_tree_count to apply clamping
+	total_tree_count = total_tree_count
+	# Notify the editor to refresh the displayed values
+	notify_property_list_changed()
+
+func get_max_tree_capacity() -> int:
+	var area_width = 4000.0
+	var area_depth = 4000.0
+	if terrain:
+		# If it's a Tool script, it might have the property set even if not in tree
+		if "terrain_size" in terrain:
+			area_width = terrain.terrain_size.x
+			area_depth = terrain.terrain_size.y
+
+	var cell_size = 1.8 
+ # Matches occ_cell_size used in scattering
+	# Use 3x3 grid logic for packing estimation
+	# A 3x3 block is (cell_size * 3) by (cell_size * 3)
+	# But actually every tree occupies one cell and blocks its neighbors.
+	# Simplest conservative estimate for this occupancy grid is Area / (cell_size^2 * buffer_factor)
+	# We want it to be 10% lower than the actual maximum density of the grid.
+	# Max theoretical density is cells / (3*3) if perfectly packed, but we allow 90% of a safe distribution.
+	
+	var cols = area_width / cell_size
+	var rows = area_depth / cell_size
+	var total_cells = cols * rows
+	
+	# Since we check a 3x3 area, a tree effectively "owns" 9 cells in a dense packing scenario.
+	var theoretical_max = total_cells / 9.0
+	
+	# Return 10% lower than the theoretical maximum
+	return int(theoretical_max * 0.9)
 
 func _generate_forest_threaded():
 	if _is_generating: return
@@ -77,7 +143,7 @@ func _generate_forest_threaded():
 	rng.randomize()
 	
 	# Occupancy grid for fast proximity checks (approximate minimum trunk distance)
-	var occ_cell_size = 1.8 # Enforce ~1.8 to 3.6 units between trunks
+	var occ_cell_size = 1.8 
 	var occ_cols = int(terrain_width / occ_cell_size) + 1
 	var occ_rows = int(terrain_depth / occ_cell_size) + 1
 	var occupancy = PackedByteArray()
