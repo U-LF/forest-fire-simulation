@@ -85,13 +85,15 @@ void process() {
             float life = fract(TIME * 0.5 + seed); // Slower, more stable life
 
             // Organic Scaling: Taller than wide, with random variation per particle
-            float base_width = (fire * 2.0) + (rand(vec2(seed, 1.0)) * 3.0); // Width: 2.0 to 5.0
-            float h_stretch = 1.5 + (rand(vec2(seed, 2.0)) * 1.5); // Height multiplier: 1.5x to 3.0x
+            vec2 process_seed = vec2(seed, float(INDEX));
+            float base_width = (fire * 3.0) + (rand(process_seed + vec2(1.0, 1.0)) * 2.0); // Width: 3.0 to 5.0
+            float h_stretch = 1.2 + (rand(process_seed + vec2(2.0, 2.0)) * 1.0); // Height multiplier: 1.2x to 2.2x
             
             float base_height = base_width * h_stretch;
             float y_offset = base_height * 0.45; // Offset based on actual scaled height to keep grounded
 
-            float current_s = base_width * (0.8 + 0.2 * sin(life * 3.1415)); // Pulse effect
+            float current_s = base_width * (0.95 + 0.05 * sin(life * 6.28)); // Very subtle pulse effect
+
             
             // Apply scale to TRANSFORM: Scale Y independently to stretch the flame
             TRANSFORM[0] = vec4(current_s, 0.0, 0.0, 0.0);

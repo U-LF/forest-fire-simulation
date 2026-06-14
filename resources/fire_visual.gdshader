@@ -1,9 +1,10 @@
 shader_type spatial;
-render_mode blend_add, depth_draw_opaque, cull_back, unshaded;
+// Changed from blend_add to blend_mix to completely eliminate the white "flashbang" overlapping artifact
+render_mode blend_mix, depth_draw_opaque, cull_back, unshaded;
 
-uniform vec4 root_color : source_color = vec4(1.0, 0.75, 0.1, 1.0);
-uniform vec4 tip_color : source_color = vec4(1.0, 0.15, 0.0, 1.0);
-uniform float fire_speed = 4.0;
+uniform vec4 root_color : source_color = vec4(1.0, 0.9, 0.2, 1.0); // Bright yellow core
+uniform vec4 tip_color : source_color = vec4(1.0, 0.3, 0.0, 1.0); // Vibrant orange/red
+uniform float fire_speed = 1.2; // Slower, heavier natural burn
 
 // 2D Noise
 vec2 random(vec2 uv) {
@@ -22,25 +23,34 @@ float noise(vec2 uv) {
 
 void fragment() {
     vec2 uv = UV;
-    // Godot 3D UVs: y=0 is top, y=1 is bottom. Invert for easier math.
+    // 0 at bottom, 1 at top
     float y = 1.0 - uv.y; 
     
-    // Scroll noise upwards
-    vec2 noise_uv = uv * vec2(1.5, 1.0) + vec2(0.0, TIME * fire_speed);
-    float n = noise(noise_uv * 4.0) * 0.5 + 0.5; 
+    // Organic sway: Flames wave left/right as they rise
+    float wave = sin(TIME * fire_speed * 1.5 + y * 4.0) * 0.15 * y;
+    vec2 distorted_uv = vec2(uv.x + wave, uv.y);
     
-    // Teardrop / Flame base shape
-    float x_dist = abs(uv.x - 0.5) * 2.0; 
-    float shape = 1.0 - pow(x_dist, 1.5) - pow(y, 1.5); 
+    // Dual-layer noise for chaotic breakdown (prevents repetitive patterns)
+    vec2 noise_uv1 = distorted_uv * vec2(2.0, 1.5) + vec2(0.0, TIME * fire_speed);
+    vec2 noise_uv2 = distorted_uv * vec2(3.0, 2.5) + vec2(0.0, TIME * fire_speed * 1.3);
+    float n1 = noise(noise_uv1 * 3.0) * 0.5 + 0.5;
+    float n2 = noise(noise_uv2 * 4.0) * 0.5 + 0.5;
+    float n = n1 * 0.7 + n2 * 0.3;
     
-    // Combine shape with noise to create flickering edges
-    float flame = smoothstep(0.0, 0.4, shape + (n * 0.8 - 0.4));
+    // Base organic column: Softer horizontal falloff, tapering at the top
+    float x_dist = abs(distorted_uv.x - 0.5) * 2.0;
+    float profile = smoothstep(1.0, 0.3, x_dist); 
+    float height_mask = smoothstep(1.0, 0.1, y); 
+    float shape = profile * height_mask;
     
-    // Soft fade at the very bottom to prevent hard clipping against the terrain
+    // Cut out the flame using the noise
+    float flame = smoothstep(0.3, 0.5, shape * n * 1.8);
+    
+    // Ground fade to prevent hard geometric clipping against the terrain
     flame *= smoothstep(0.0, 0.1, y); 
     
-    // Color gradient from tip (red) to root (bright orange/yellow)
-    vec3 color = mix(tip_color.rgb, root_color.rgb, pow(1.0 - y, 1.5));
+    // Natural Color: Gradient driven by height and noise
+    vec3 color = mix(tip_color.rgb, root_color.rgb, smoothstep(0.1, 0.7, y * n * 1.5));
     
     ALBEDO = color;
     ALPHA = flame * COLOR.a; 

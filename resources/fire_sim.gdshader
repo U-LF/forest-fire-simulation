@@ -4,9 +4,11 @@ uniform sampler2D state_tex : filter_nearest, repeat_disable;
 uniform vec2 ignite_pos = vec2(-1.0, -1.0);
 uniform float ignite_radius = 0.002; // Reduced back to 8m radius
 
-// Pseudorandom generator for organic spread
-float rand(vec2 co) {
-    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+// High-quality Spatial Hash (Dave Hoskins hash12)
+float rand(vec2 p) {
+    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void fragment() {
@@ -29,12 +31,18 @@ void fragment() {
         float fire_down = texture(state_tex, uv + vec2(0.0, texel.y)).r;
         float fire_left = texture(state_tex, uv + vec2(-texel.x, 0.0)).r;
         float fire_right = texture(state_tex, uv + vec2(texel.x, 0.0)).r;
+        float fire_ul = texture(state_tex, uv + vec2(-texel.x, -texel.y)).r;
+        float fire_ur = texture(state_tex, uv + vec2(texel.x, -texel.y)).r;
+        float fire_dl = texture(state_tex, uv + vec2(-texel.x, texel.y)).r;
+        float fire_dr = texture(state_tex, uv + vec2(texel.x, texel.y)).r;
         
-        float neighbor_fire = max(max(fire_up, fire_down), max(fire_left, fire_right));
+        float neighbor_fire_cross = max(max(fire_up, fire_down), max(fire_left, fire_right));
+        float neighbor_fire_diag = max(max(fire_ul, fire_ur), max(fire_dl, fire_dr));
+        float neighbor_fire = max(neighbor_fire_cross, neighbor_fire_diag);
         
-        // Organic, faster spread for testing
+        // Organic, perfectly isotropic spread using hash
         if (neighbor_fire > 0.5) {
-            float r = rand(uv + vec2(TIME));
+            float r = rand(uv * 100.0 + vec2(TIME));
             if (r < 0.05) { // 5% chance to catch fire (5x faster spread)
                 fire += 0.2; // Faster initial catch
             }
