@@ -57,15 +57,6 @@ func _ready() -> void:
 	call_deferred("_inject_to_terrain")
 	call_deferred("_setup_particles")
 	
-	# Create debug overlay
-	var debug_rect = TextureRect.new()
-	debug_rect.texture = vp_a.get_texture()
-	debug_rect.custom_minimum_size = Vector2(256, 256)
-	debug_rect.layout_mode = 1 # Layout mode anchor
-	debug_rect.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	debug_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(debug_rect)
-	
 	# Find camera and connect
 	call_deferred("_connect_to_camera")
 
@@ -96,13 +87,8 @@ func _setup_particles() -> void:
 	sim_mat_a.set_shader_parameter("ignite_radius", 0.005) # Realistic brush size (20m radius)
 	sim_mat_b.set_shader_parameter("ignite_radius", 0.005)
 	
-	var draw_mat = StandardMaterial3D.new()
-	draw_mat.albedo_color = Color(1.0, 0.6, 0.1, 0.9)
-	draw_mat.emission_enabled = true
-	draw_mat.emission = Color(1.0, 0.4, 0.0)
-	draw_mat.emission_energy_multiplier = 8.0
-	draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	draw_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	var draw_mat = ShaderMaterial.new()
+	draw_mat.shader = load("res://resources/fire_visual.gdshader")
 	
 	var quad = QuadMesh.new()
 	quad.material = draw_mat
@@ -111,11 +97,12 @@ func _setup_particles() -> void:
 	fire_particles.amount = 50000
 	fire_particles.process_material = fire_proc_mat
 	fire_particles.draw_pass_1 = quad
-	fire_particles.lifetime = 1.5 # Short lifetime so they continuously respawn around the camera
+	fire_particles.lifetime = 6.0 # Much longer lifetime to show they stay in place
 	fire_particles.explosiveness = 0.0
 	fire_particles.fixed_fps = 0
-	fire_particles.local_coords = false # Critical: Lock particles to world space, preventing sliding
-	fire_particles.visibility_aabb = AABB(Vector3(-1000, -100, -1000), Vector3(2000, 300, 2000))
+	fire_particles.interpolate = false # Disable engine interpolation for custom shaders
+	fire_particles.local_coords = false 
+	fire_particles.visibility_aabb = AABB(Vector3(-2000, -100, -2000), Vector3(4000, 1000, 4000))
 	fire_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	
 	add_child(fire_particles)
@@ -131,25 +118,30 @@ func _setup_particles() -> void:
 	ember_proc_mat.set_shader_parameter("spawn_radius", 600.0)
 	
 	var ember_draw_mat = StandardMaterial3D.new()
-	ember_draw_mat.albedo_color = Color(1.0, 0.5, 0.1, 1.0)
+	ember_draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ember_draw_mat.albedo_color = Color(1.0, 0.4, 0.1, 1.0)
 	ember_draw_mat.emission_enabled = true
-	ember_draw_mat.emission = Color(1.0, 0.4, 0.0)
-	ember_draw_mat.emission_energy_multiplier = 10.0
+	ember_draw_mat.emission = Color(1.0, 0.3, 0.05)
+	ember_draw_mat.emission_energy_multiplier = 4.0 # More subtle glow
 	ember_draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ember_draw_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	ember_draw_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD # Additive for "heat" look
+	ember_draw_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	ember_draw_mat.billboard_keep_scale = true
 	
 	var ember_quad = QuadMesh.new()
+	ember_quad.size = Vector2(0.8, 0.8) # Base size, will be scaled down by the shader
 	ember_quad.material = ember_draw_mat
 	
 	ember_particles = GPUParticles3D.new()
-	ember_particles.amount = 20000
+	ember_particles.amount = 40000 # Double density
 	ember_particles.process_material = ember_proc_mat
 	ember_particles.draw_pass_1 = ember_quad
-	ember_particles.lifetime = 3.0
+	ember_particles.lifetime = 4.0 # Longer, slower drift
 	ember_particles.explosiveness = 0.0
 	ember_particles.fixed_fps = 0
+	ember_particles.interpolate = false # Disable engine interpolation for custom shaders
 	ember_particles.local_coords = false
-	ember_particles.visibility_aabb = AABB(Vector3(-1000, -100, -1000), Vector3(2000, 300, 2000))
+	ember_particles.visibility_aabb = AABB(Vector3(-2000, -100, -2000), Vector3(4000, 500, 4000))
 	ember_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	
 	add_child(ember_particles)
@@ -189,11 +181,11 @@ func _process(_delta: float) -> void:
 		if cam:
 			var cam_pos = cam.global_position
 			var world_offset = Vector3(cam_pos.x, 0, cam_pos.z)
-			fire_particles.global_position = world_offset
+			# Do NOT move fire_particles.global_position anymore
 			fire_proc_mat.set_shader_parameter("world_offset", world_offset)
 			
 			if ember_particles and ember_proc_mat:
-				ember_particles.global_position = world_offset
+				# Do NOT move ember_particles.global_position anymore
 				ember_proc_mat.set_shader_parameter("world_offset", world_offset)
 
 func _on_fire_started(world_pos: Vector3) -> void:

@@ -19,18 +19,12 @@ var rain_shift_speed: float = 0.05
 func _ready() -> void:
 	if rain_particles:
 		rain_particles.emitting = false
-		var process_mat = rain_particles.process_material as ParticleProcessMaterial
-		if process_mat:
-			# Use duplicate to avoid affecting other materials if shared
-			rain_particles.process_material = process_mat.duplicate()
-			# Concentrate rain around camera for massive performance gain
-			(rain_particles.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(100.0, 2.0, 100.0)
-		
-		# Reduced AABB to match localized rain
+		rain_particles.local_coords = false # Prevent sliding
 		rain_particles.visibility_aabb = AABB(
-			Vector3(-100.0, -180.0, -100.0),
-			Vector3(200.0, 200.0, 200.0)
+			Vector3(-2000.0, -200.0, -2000.0),
+			Vector3(4000.0, 400.0, 4000.0)
 		)
+		var process_mat = rain_particles.process_material as ParticleProcessMaterial
 
 	if lightning_light:
 		lightning_light.light_energy = 0.0

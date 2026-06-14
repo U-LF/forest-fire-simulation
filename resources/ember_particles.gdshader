@@ -6,77 +6,120 @@ uniform float terrain_size = 4000.0;
 uniform float noise_scale = 1400.0;
 uniform float height_scale = 120.0;
 uniform vec3 world_offset = vec3(0.0);
-uniform float spawn_radius = 600.0;
+uniform float spawn_radius = 500.0;
 
-float rand(vec2 co){
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+// High-quality Spatial Hash (Dave Hoskins hash12)
+// Completely eliminates grid banding and center-stacking artifacts
+float rand(vec2 p) {
+    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void start() {
-    float id = float(INDEX) + TIME;
+    vec2 base_seed = vec2(float(INDEX), TIME);
     vec2 pos = vec2(0.0);
-    bool found_char = false;
-    
-    // Stochastic Spawning: Find charred areas
-    for (int i = 0; i < 30; i++) {
-        float angle = rand(vec2(id, float(i))) * 6.28318;
-        float r = sqrt(rand(vec2(id, float(i) + 0.5))) * spawn_radius;
+    bool found_source = false;
+
+    // Stochastic Spawning: Find areas that are heavily charred but still "hot"
+    for (int i = 0; i < 40; i++) {
+        // High-quality random distribution to absolutely prevent banding/stacking
+        float u = rand(base_seed + vec2(float(i) * 1.34, 12.1));
+        float v = rand(base_seed + vec2(float(i) * 3.71, 55.4));
+        float angle = u * 6.2831853;
+        float r = sqrt(v) * spawn_radius;
+        
         pos.x = world_offset.x + cos(angle) * r;
         pos.y = world_offset.z + sin(angle) * r;
-        
+
         vec2 uv = (pos / terrain_size) + 0.5;
         vec4 state = texture(burn_map, uv);
-        if (state.g > 0.3) { // Charred area
-            found_char = true;
-            break;
+        float char_lvl = state.g;
+        float fuel = state.b;
+
+        // --- Delayed & Cooling Logic ---
+        // 1. Only start spawning once charring is advanced (e.g., > 0.6)
+        // 2. As charring approaches 1.0, "heat" starts to drop.
+        // We simulate this by reducing the probability of spawning in fully charred areas.
+        if (char_lvl > 0.6) {
+            float heat_factor = smoothstep(1.0, 0.6, char_lvl); // Heat drops as char peaks
+            if (rand(base_seed + vec2(float(i) * 2.1, 0.7)) < (0.2 + heat_factor * 0.8)) {
+                found_source = true;
+                break;
+            }
         }
     }
-    
+
+    // Store fixed world position in CUSTOM.xy
     CUSTOM.x = pos.x;
     CUSTOM.y = pos.y;
-    CUSTOM.z = rand(vec2(id, 3.0)); // Random life phase
+
+    // Store height in CUSTOM.z
+    vec2 uv_noise = (pos / noise_scale) + 0.5;
+    float h = textureLod(height_map, uv_noise, 0.0).r;
+    CUSTOM.z = smoothstep(0.1, 0.95, h) * height_scale;
+
+    // Store random seed for life phase in CUSTOM.w (using positive/negative for visibility)
+    float seed = rand(base_seed + vec2(3.0, 3.0));
     
-    if (!found_char) {
-        CUSTOM.w = -1000.0; // Hide particle
+    TRANSFORM[0] = vec4(0.0);
+    TRANSFORM[1] = vec4(0.0);
+    TRANSFORM[2] = vec4(0.0);
+
+    if (!found_source) {
+        CUSTOM.w = -seed - 100.0; // Negative means hidden
+        // CRITICAL: Push instantly underground so Billboard material doesn't draw a 1-frame ghost
+        TRANSFORM[3] = vec4(0.0, -1000.0, 0.0, 1.0);
     } else {
-        CUSTOM.w = 1.0;
+        CUSTOM.w = seed;
+        TRANSFORM[3] = vec4(CUSTOM.x, CUSTOM.z, CUSTOM.y, 1.0);
     }
 }
 
 void process() {
     if (CUSTOM.w < 0.0) {
-        TRANSFORM[0][0] = 0.0;
-        TRANSFORM[1][1] = 0.0;
-        TRANSFORM[2][2] = 0.0;
+        TRANSFORM[0] = vec4(0.0);
+        TRANSFORM[1] = vec4(0.0);
+        TRANSFORM[2] = vec4(0.0);
+        TRANSFORM[3] = vec4(0.0, -1000.0, 0.0, 1.0);
     } else {
         vec2 uv_burn = (CUSTOM.xy / terrain_size) + 0.5;
-        
         vec4 burn_state = textureLod(burn_map, uv_burn, 0.0);
         float char_lvl = burn_state.g;
-        
-        if (char_lvl > 0.3) {
-            vec2 uv_noise = (CUSTOM.xy / noise_scale) + 0.5;
-            float h = textureLod(height_map, uv_noise, 0.0).r;
-            h = smoothstep(0.1, 0.95, h) * height_scale;
+
+        // Embers persist in charred areas but scale/intensity depends on "heat"
+        if (char_lvl > 0.5) {
+            float seed = CUSTOM.w;
+
+            // Heat Decay: char 0.6 is peak heat, 1.0 is "cooling off"
+            float heat = smoothstep(1.0, 0.6, char_lvl); 
+
+            float life_speed = 0.2 + (seed * 0.3); 
+            float life = fract(TIME * life_speed + seed);
+
+            // Rising air slows down as it cools
+            float lift = pow(life, 0.7) * (5.0 + heat * 10.0); 
+
+            float freq = 6.0 + seed * 4.0;
+            float jitter_x = sin(TIME * 1.5 + life * freq + seed * 100.0) * (0.4 + heat * 0.4);
+            float jitter_z = cos(TIME * 1.2 + life * freq + seed * 150.0) * (0.4 + heat * 0.4);
+
+            // Size shrinks as heat decays
+            float s_base = (0.05 + heat * 0.15) + (seed * 0.1); 
+            float s_curve = sin(life * 3.1415);
+            float s = s_base * s_curve;
+
+            TRANSFORM[0] = vec4(s, 0.0, 0.0, 0.0);
+            TRANSFORM[1] = vec4(0.0, s, 0.0, 0.0);
+            TRANSFORM[2] = vec4(0.0, 0.0, s, 0.0);
+            // Use locked CUSTOM.x/y/z for base position
+            TRANSFORM[3] = vec4(CUSTOM.x + jitter_x, CUSTOM.z + lift + 0.5, CUSTOM.y + jitter_z, 1.0);
             
-            float life = fract(TIME * 0.5 + CUSTOM.z);
-            
-            float s = char_lvl * 0.5; // Embers are small
-            
-            float y_offset = life * 3.0; // Drift upwards slowly
-            float x_drift = sin(life * 6.28 + CUSTOM.z * 10.0) * 1.5;
-            float z_drift = cos(life * 6.28 + CUSTOM.z * 10.0) * 1.5;
-            
-            TRANSFORM[3].xyz = vec3(CUSTOM.x + x_drift, h + y_offset + 0.5, CUSTOM.y + z_drift); // Global world position
-            
-            float current_s = s * sin(life * 3.1415); // Fade in and out
-            TRANSFORM[0][0] = current_s;
-            TRANSFORM[1][1] = current_s;
-            TRANSFORM[2][2] = current_s;
         } else {
-            TRANSFORM[0][0] = 0.0;
-            TRANSFORM[1][1] = 0.0;
-            TRANSFORM[2][2] = 0.0;
+            TRANSFORM[0] = vec4(0.0);
+            TRANSFORM[1] = vec4(0.0);
+            TRANSFORM[2] = vec4(0.0);
+            TRANSFORM[3] = vec4(0.0, -1000.0, 0.0, 1.0);
         }
     }
 }

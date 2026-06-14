@@ -32,34 +32,33 @@ void fragment() {
         
         float neighbor_fire = max(max(fire_up, fire_down), max(fire_left, fire_right));
         
-        // Organic, slow spread: Only jump to new tiles randomly
+        // Organic, faster spread for testing
         if (neighbor_fire > 0.5) {
             float r = rand(uv + vec2(TIME));
-            if (r < 0.01) { // 1% chance to catch fire per frame (Visibly creeping spread)
-                fire += 0.05; 
+            if (r < 0.05) { // 5% chance to catch fire (5x faster spread)
+                fire += 0.2; // Faster initial catch
             }
         }
         
         if (distance(uv, ignite_pos) < ignite_radius) {
-            fire = 1.0; // Manual ignition
+            fire = 1.0; 
         }
     }
     
-    // Burn logic
+    // Fast burn logic for testing
     if (fire > 0.0) {
         if (fire > 0.05 && fuel > 0.0) { 
-            fire = min(1.0, fire + 0.01); // Gradual flare up rather than instant explosion
+            fire = min(1.0, fire + 0.1); // Rapid flare up
         }
         
-        fuel -= 0.001; // 1000 frames to burn out (~16.6 seconds)
-        char_lvl += 0.002; 
+        fuel -= 0.005; // ~3.3 seconds to burn out
+        char_lvl += 0.01; // Rapid charring
         
         if (fuel <= 0.0) {
             fuel = 0.0;
-            fire -= 0.02; // Die down smoothly
+            fire -= 0.1; // Rapid die down
         }
-    }
-    
+    }    
     fire = clamp(fire, 0.0, 1.0);
     char_lvl = clamp(char_lvl, 0.0, 1.0);
     

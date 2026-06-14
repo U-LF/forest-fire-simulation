@@ -8,77 +8,101 @@ uniform float height_scale = 120.0;
 uniform vec3 world_offset = vec3(0.0);
 uniform float spawn_radius = 500.0;
 
-float rand(vec2 co){
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+// High-quality Spatial Hash (Dave Hoskins hash12)
+// Completely eliminates grid banding and center-stacking artifacts
+float rand(vec2 p) {
+    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void start() {
-    float id = float(INDEX) + TIME;
+    vec2 base_seed = vec2(float(INDEX), TIME);
     vec2 pos = vec2(0.0);
     bool found_fire = false;
-    
-    // Stochastic Spawning: Try up to 40 random spots to find one that is currently on fire
+
+    // Stochastic Spawning: Find areas on fire but NOT yet fully charred
     for (int i = 0; i < 40; i++) {
-        float angle = rand(vec2(id, float(i))) * 6.28318;
-        float r = sqrt(rand(vec2(id, float(i) + 0.5))) * spawn_radius;
+        // High-quality random distribution to absolutely prevent banding/stacking
+        float u = rand(base_seed + vec2(float(i) * 1.34, 12.1));
+        float v = rand(base_seed + vec2(float(i) * 3.71, 55.4));
+        float angle = u * 6.2831853;
+        float r = sqrt(v) * spawn_radius;
+        
         pos.x = world_offset.x + cos(angle) * r;
         pos.y = world_offset.z + sin(angle) * r;
-        
+
         vec2 uv = (pos / terrain_size) + 0.5;
-        if (texture(burn_map, uv).r > 0.05) {
+        vec4 state = texture(burn_map, uv);
+
+        if (state.r > 0.1 && state.g < 0.85) {
             found_fire = true;
             break;
         }
     }
-    
+
+    // Store fixed world position in CUSTOM.xy
     CUSTOM.x = pos.x;
     CUSTOM.y = pos.y;
-    CUSTOM.z = rand(vec2(id, 3.0)); // Random life phase
+
+    // Store height in CUSTOM.z
+    vec2 uv_noise = (pos / noise_scale) + 0.5;
+    float h = textureLod(height_map, uv_noise, 0.0).r;
+    CUSTOM.z = smoothstep(0.1, 0.95, h) * height_scale;
+
+    // Store random seed for life phase in CUSTOM.w (using positive/negative for visibility)
+    float seed = rand(base_seed + vec2(3.0, 3.0));
+    
+    TRANSFORM[0] = vec4(0.0);
+    TRANSFORM[1] = vec4(0.0);
+    TRANSFORM[2] = vec4(0.0);
     
     if (!found_fire) {
-        CUSTOM.w = -1000.0; // Hide particle by sending it far underground
+        CUSTOM.w = -seed - 100.0; // Negative means hidden
+        // CRITICAL: Push instantly underground so Billboard material doesn't draw a 1-frame ghost
+        TRANSFORM[3] = vec4(0.0, -1000.0, 0.0, 1.0);
     } else {
-        CUSTOM.w = 1.0;
+        CUSTOM.w = seed;
+        TRANSFORM[3] = vec4(CUSTOM.x, CUSTOM.z, CUSTOM.y, 1.0);
     }
 }
 
 void process() {
     if (CUSTOM.w < 0.0) {
-        TRANSFORM[0][0] = 0.0;
-        TRANSFORM[1][1] = 0.0;
-        TRANSFORM[2][2] = 0.0;
+        TRANSFORM[0] = vec4(0.0);
+        TRANSFORM[1] = vec4(0.0);
+        TRANSFORM[2] = vec4(0.0);
+        TRANSFORM[3] = vec4(0.0, -1000.0, 0.0, 1.0);
     } else {
         vec2 uv_burn = (CUSTOM.xy / terrain_size) + 0.5;
-        
         vec4 burn_state = textureLod(burn_map, uv_burn, 0.0);
         float fire = burn_state.r;
         float char_lvl = burn_state.g;
-        
-        // Only show strong fire if it hasn't fully charred yet
+
+        // Kill fire particles as soon as the area is mostly charred
         if (fire > 0.05 && char_lvl < 0.9) {
-            vec2 uv_noise = (CUSTOM.xy / noise_scale) + 0.5;
-            float h = textureLod(height_map, uv_noise, 0.0).r;
-            h = smoothstep(0.1, 0.95, h) * height_scale;
+            float seed = CUSTOM.w;
+            float life = fract(TIME * 0.5 + seed); // Slower, more stable life
+
+            // Organic Scaling: Taller than wide, with random variation per particle
+            float base_width = (fire * 2.0) + (rand(vec2(seed, 1.0)) * 3.0); // Width: 2.0 to 5.0
+            float h_stretch = 1.5 + (rand(vec2(seed, 2.0)) * 1.5); // Height multiplier: 1.5x to 3.0x
             
-            float life = fract(TIME * 1.5 + CUSTOM.z);
+            float base_height = base_width * h_stretch;
+            float y_offset = base_height * 0.45; // Offset based on actual scaled height to keep grounded
+
+            float current_s = base_width * (0.8 + 0.2 * sin(life * 3.1415)); // Pulse effect
             
-            float s = fire * 15.0; // Scale up massively to match tree sizes
-            
-            // Critical: A QuadMesh billboard stretches from its center.
-            // If its scale is 's', it extends s/2 up and s/2 down.
-            // By offsetting the height by EXACTLY s/2, the bottom of the flame rests perfectly on the ground!
-            float y_offset = s * 0.45; 
-            
-            TRANSFORM[3].xyz = vec3(CUSTOM.x, h + y_offset, CUSTOM.y); // Global world position
-            
-            float current_s = s * (0.8 + 0.2 * sin(life * 3.1415)); // Pulsate smoothly
-            TRANSFORM[0][0] = current_s;
-            TRANSFORM[1][1] = current_s;
-            TRANSFORM[2][2] = current_s;
+            // Apply scale to TRANSFORM: Scale Y independently to stretch the flame
+            TRANSFORM[0] = vec4(current_s, 0.0, 0.0, 0.0);
+            TRANSFORM[1] = vec4(0.0, current_s * h_stretch, 0.0, 0.0);
+            TRANSFORM[2] = vec4(0.0, 0.0, current_s, 0.0);
+            TRANSFORM[3] = vec4(CUSTOM.x, CUSTOM.z + y_offset, CUSTOM.y, 1.0);
         } else {
-            TRANSFORM[0][0] = 0.0;
-            TRANSFORM[1][1] = 0.0;
-            TRANSFORM[2][2] = 0.0;
+            TRANSFORM[0] = vec4(0.0);
+            TRANSFORM[1] = vec4(0.0);
+            TRANSFORM[2] = vec4(0.0);
+            TRANSFORM[3] = vec4(0.0, -1000.0, 0.0, 1.0);
         }
     }
 }
