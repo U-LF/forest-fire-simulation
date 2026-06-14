@@ -2,7 +2,7 @@ extends Node3D
 
 @export var terrain: StaticBody3D
 @export var tree_scenes: Array[PackedScene]
-@export var total_tree_count: int = 500000
+@export var total_tree_count: int = 450000
 @export var chunk_size: float = 250.0
 @export var visibility_distance: float = 1250.0
 
@@ -76,6 +76,14 @@ func _generate_forest_threaded():
 	var rng = RandomNumberGenerator.new()
 	rng.randomize()
 	
+	# Occupancy grid for fast proximity checks (approximate minimum trunk distance)
+	var occ_cell_size = 1.8 # Enforce ~1.8 to 3.6 units between trunks
+	var occ_cols = int(terrain_width / occ_cell_size) + 1
+	var occ_rows = int(terrain_depth / occ_cell_size) + 1
+	var occupancy = PackedByteArray()
+	occupancy.resize(occ_cols * occ_rows)
+	occupancy.fill(0)
+	
 	var count_per_type = total_tree_count / float(tree_scenes.size())
 	var buffer = 15.0
 	
@@ -95,6 +103,21 @@ func _generate_forest_threaded():
 			
 			var normal = terrain.get_normal_at(x, z)
 			if normal.dot(Vector3.UP) < 0.78: continue
+			
+			# --- Fast Proximity Check ---
+			var occ_x = int((x + half_width) / occ_cell_size)
+			var occ_z = int((z + half_depth) / occ_cell_size)
+			
+			var too_close = false
+			for ox in range(occ_x - 1, occ_x + 2):
+				for oz in range(occ_z - 1, occ_z + 2):
+					if ox >= 0 and ox < occ_cols and oz >= 0 and oz < occ_rows:
+						if occupancy[oz * occ_cols + ox] == 1:
+							too_close = true
+							break
+				if too_close: break
+			
+			if too_close: continue
 			
 			var y = terrain.get_height_at(x, z)
 			
@@ -117,6 +140,9 @@ func _generate_forest_threaded():
 			t.origin = Vector3(x, y - 0.4, z)
 			
 			tree_data[type_idx][chunk_idx].append(t)
+			
+			# Mark as occupied
+			occupancy[occ_z * occ_cols + occ_x] = 1
 			
 			# Store in Spatial Index for Fire using packed arrays for cache-locality
 			var grid_key = Vector2i(c, r)

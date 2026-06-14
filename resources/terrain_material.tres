@@ -29,6 +29,7 @@ seamless = true
 render_priority = 0
 shader = ExtResource("1_terrain")
 shader_parameter/terrain_scale = 1000.0
+shader_parameter/terrain_size = 4000.0
 shader_parameter/height_scale = 120.0
 shader_parameter/macro_noise = SubResource("NoiseTexture2D_macro")
 shader_parameter/micro_noise = SubResource("NoiseTexture2D_micro")
