@@ -35,15 +35,12 @@ void start() {
         vec2 uv = (pos / terrain_size) + 0.5;
         vec4 state = texture(burn_map, uv);
         float char_lvl = state.g;
-        float fuel = state.b;
+        float heat = state.a; // Explicit heat channel
 
         // --- Delayed & Cooling Logic ---
-        // 1. Only start spawning once charring is advanced (e.g., > 0.6)
-        // 2. As charring approaches 1.0, "heat" starts to drop.
-        // We simulate this by reducing the probability of spawning in fully charred areas.
-        if (char_lvl > 0.6) {
-            float heat_factor = smoothstep(1.0, 0.6, char_lvl); // Heat drops as char peaks
-            if (rand(base_seed + vec2(float(i) * 2.1, 0.7)) < (0.2 + heat_factor * 0.8)) {
+        // Spawn based on explicit heat channel
+        if (char_lvl > 0.6 && heat > 0.05) {
+            if (rand(base_seed + vec2(float(i) * 2.1, 0.7)) < (0.1 + heat * 0.9)) {
                 found_source = true;
                 break;
             }
@@ -86,13 +83,11 @@ void process() {
         vec2 uv_burn = (CUSTOM.xy / terrain_size) + 0.5;
         vec4 burn_state = textureLod(burn_map, uv_burn, 0.0);
         float char_lvl = burn_state.g;
+        float heat = burn_state.a;
 
-        // Embers persist in charred areas but scale/intensity depends on "heat"
-        if (char_lvl > 0.5) {
+        // Embers persist in charred areas but scale/intensity depends on explicit "heat"
+        if (char_lvl > 0.5 && heat > 0.01) {
             float seed = CUSTOM.w;
-
-            // Heat Decay: char 0.6 is peak heat, 1.0 is "cooling off"
-            float heat = smoothstep(1.0, 0.6, char_lvl); 
 
             float life_speed = 0.2 + (seed * 0.3); 
             float life = fract(TIME * life_speed + seed);

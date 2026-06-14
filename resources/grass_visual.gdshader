@@ -36,19 +36,31 @@ void fragment() {
     vec4 tex = texture(albedo_texture, UV);
     vec3 final_color = tex.rgb * albedo_color.rgb;
     
-    // Read char level from global burn map
+    // Read char level and explicit heat from global burn map
     vec2 uv_burn = (v_world_pos.xz / terrain_size) + 0.5;
     vec4 burn_state = texture(burn_map, uv_burn);
     float char_lvl = burn_state.g;
+    float heat = burn_state.a;
     
     // Apply charring effect (turn grass black where burnt)
     final_color = mix(final_color, vec3(0.02, 0.02, 0.02), char_lvl);
     
-    // Ember effect
-    float ember_noise = fract(sin(dot(floor(v_world_pos.xz * 3.0), vec2(12.9898, 78.233))) * 43758.5453);
-    float ember_pulse = 0.5 + 0.5 * sin(TIME * 3.5 + ember_noise * 10.0);
-    float ember_mask = smoothstep(0.8, 1.0, ember_noise) * char_lvl;
-    vec3 ember_color = vec3(1.0, 0.3, 0.0) * ember_mask * ember_pulse * 1.5;
+    // Ember effect: Delay until charred, fade using explicit heat
+    float ember_phase = smoothstep(0.6, 0.9, char_lvl) * heat;
+    
+    // Smooth, low-frequency noise
+    float ember_noise = (sin(v_world_pos.x * 2.5) * cos(v_world_pos.y * 2.5 + v_world_pos.z * 2.5)) * 0.5 + 0.5;
+    
+    // Slow, heavy pulse
+    float ember_pulse = 0.6 + 0.4 * sin(TIME * 1.5 + ember_noise * 4.0);
+    
+    // Tighter mask
+    float ember_mask = smoothstep(0.75, 0.95, ember_noise) * ember_phase;
+    
+    // Deep smoldering colors
+    vec3 hot_color = vec3(0.9, 0.25, 0.05);
+    vec3 cool_color = vec3(0.5, 0.05, 0.0);
+    vec3 ember_color = mix(cool_color, hot_color, heat) * ember_mask * ember_pulse * 1.5;
 
     ALBEDO = final_color;
     EMISSION = ember_color;

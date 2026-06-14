@@ -1,4 +1,5 @@
 shader_type canvas_item;
+render_mode blend_disabled;
 
 uniform sampler2D state_tex : filter_nearest, repeat_disable;
 uniform vec2 ignite_pos = vec2(-1.0, -1.0);
@@ -16,13 +17,14 @@ void fragment() {
     vec4 state = texture(state_tex, uv);
     
     // Aggressive initialization: if we are close to pure black (empty viewport), flood it with Fuel (Blue)
-    if (length(state.rgb) < 0.1) {
-        state = vec4(0.0, 0.0, 1.0, 1.0); // Pure Fuel
+    if (length(state.rgb) < 0.1 && state.a < 0.1) {
+        state = vec4(0.0, 0.0, 1.0, 0.0); // Pure Fuel, 0 Heat
     }
     
     float fire = state.r;
     float char_lvl = state.g;
     float fuel = state.b;
+    float heat = state.a;
     
     // Spread logic
     if (fuel > 0.0) {
@@ -53,22 +55,27 @@ void fragment() {
         }
     }
     
-    // Fast burn logic for testing
-    if (fire > 0.0) {
+    // Fast burn logic for testing with explicit Heat lifecycle
+    if (fire > 0.0 || heat > 0.0) {
         if (fire > 0.05 && fuel > 0.0) { 
             fire = min(1.0, fire + 0.1); // Rapid flare up
+            heat = min(1.0, heat + 0.05); // Heat up quickly
         }
         
-        fuel -= 0.005; // ~3.3 seconds to burn out
-        char_lvl += 0.01; // Rapid charring
+        if (fire > 0.0) {
+            fuel -= 0.005; // ~3.3 seconds to burn out
+            char_lvl += 0.01; // Rapid charring
+        }
         
         if (fuel <= 0.0) {
             fuel = 0.0;
             fire -= 0.1; // Rapid die down
+            heat -= 0.003; // Slowly cool off (~5.5 seconds of residual heat)
         }
     }    
     fire = clamp(fire, 0.0, 1.0);
     char_lvl = clamp(char_lvl, 0.0, 1.0);
+    heat = clamp(heat, 0.0, 1.0);
     
-    COLOR = vec4(fire, char_lvl, fuel, 1.0);
+    COLOR = vec4(fire, char_lvl, fuel, heat);
 }

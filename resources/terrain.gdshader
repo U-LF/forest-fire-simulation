@@ -104,15 +104,27 @@ void fragment() {
     vec2 uv_burn = (v_world_pos.xz / terrain_size) + 0.5;
     vec4 burn_state = texture(burn_map, uv_burn);
     float char_lvl = burn_state.g;
+    float heat = burn_state.a;
     
     // Apply charring effect (turn terrain pitch black where burnt)
     final_color = mix(final_color, vec3(0.05, 0.05, 0.05), char_lvl);
     
-    // Ember effect
-    float ember_noise = texture(micro_noise, v_world_pos.xz / 2.0).r;
-    float ember_pulse = 0.5 + 0.5 * sin(TIME * 3.0 + ember_noise * 20.0);
-    float ember_mask = smoothstep(0.6, 0.8, ember_noise) * char_lvl;
-    vec3 ember_color = vec3(1.0, 0.3, 0.0) * ember_mask * ember_pulse * 2.0;
+    // Ember effect: Delay until charred, fade using explicit heat
+    float ember_phase = smoothstep(0.6, 0.9, char_lvl) * heat;
+    
+    // Smooth, low-frequency noise for larger glowing "veins" in the ground
+    float ember_noise = (sin(v_world_pos.x * 1.5) * cos(v_world_pos.z * 1.5)) * 0.5 + 0.5;
+    
+    // Slow, breathing heat
+    float ember_pulse = 0.6 + 0.4 * sin(TIME * 1.2 + ember_noise * 3.0); 
+    
+    // Tight mask for subtlety
+    float ember_mask = smoothstep(0.8, 0.98, ember_noise) * ember_phase;
+    
+    // Deep smoldering colors
+    vec3 hot_color = vec3(0.9, 0.25, 0.05);
+    vec3 cool_color = vec3(0.4, 0.05, 0.0);
+    vec3 ember_color = mix(cool_color, hot_color, heat) * ember_mask * ember_pulse * 1.5;
     
     ALBEDO = final_color;
     EMISSION = ember_color;
