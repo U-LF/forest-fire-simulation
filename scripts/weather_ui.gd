@@ -10,9 +10,22 @@ extends CanvasLayer
 @onready var rain_label: Label = $Margin/Panel/Padding/MainVBox/CurrentHBox/RightCol/RainLabel
 @onready var fire_progress_bar: ProgressBar = $Margin/Panel/Padding/MainVBox/FireRiskBox/FireProgressBar
 @onready var fire_factors_label: Label = $Margin/Panel/Padding/MainVBox/FireRiskBox/FactorsLabel
+
+@onready var total_trees_label: Label = $Margin/Panel/Padding/MainVBox/TreeStatsBox/TotalTreesLabel
+@onready var healthy_trees_label: Label = $Margin/Panel/Padding/MainVBox/TreeStatsBox/HealthyTreesLabel
+@onready var damaged_trees_label: Label = $Margin/Panel/Padding/MainVBox/TreeStatsBox/DamagedTreesLabel
+@onready var burnt_trees_label: Label = $Margin/Panel/Padding/MainVBox/TreeStatsBox/BurntTreesLabel
+
 @onready var forecast_list: VBoxContainer = $Margin/Panel/Padding/MainVBox/ForecastList
 
 var forecast_rows: Array[HBoxContainer] = []
+
+func update_tree_stats(total: int, healthy: int, damaged: int, burnt: int) -> void:
+	total_trees_label.text = "Total Trees: %d" % total
+	healthy_trees_label.text = "Healthy: %d" % healthy
+	damaged_trees_label.text = "Damaged: %d" % damaged
+	burnt_trees_label.text = "Burnt: %d" % burnt
+
 
 func _ready() -> void:
 	if not weather_manager:
@@ -23,6 +36,12 @@ func _ready() -> void:
 		day_night_cycle = get_node_or_null("../DayNightCycle")
 		if not day_night_cycle:
 			day_night_cycle = get_node_or_null("/root/Main/DayNightCycle")
+			
+	var fire_manager = get_node_or_null("../FireManager")
+	if not fire_manager:
+		fire_manager = get_node_or_null("/root/Main/FireManager")
+	if fire_manager and fire_manager.has_signal("tree_stats_updated"):
+		fire_manager.tree_stats_updated.connect(update_tree_stats)
 			
 	# Initialize 7 forecast rows dynamically so they align perfectly
 	for i in range(7):

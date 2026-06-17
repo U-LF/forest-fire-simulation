@@ -1,5 +1,7 @@
 extends Node
 
+signal tree_stats_updated(total: int, healthy: int, damaged: int, burnt: int)
+
 @export var map_size: int = 2048
 @export var terrain_size: float = 4000.0
 
@@ -11,6 +13,11 @@ var sim_mat_a: ShaderMaterial
 var sim_mat_b: ShaderMaterial
 
 var current_vp_is_a: bool = true
+
+var _stats_timer: float = 0.0
+var _stats_interval: float = 1.0
+var _is_calculating_stats: bool = false
+
 
 func _ready() -> void:
 	vp_a = SubViewport.new()
@@ -60,6 +67,7 @@ func _ready() -> void:
 	# Find camera and connect
 	call_deferred("_connect_to_camera")
 
+var _global_time: float = 0.0
 var fire_particles: GPUParticles3D
 var fire_proc_mat: ShaderMaterial
 var ember_particles: GPUParticles3D
@@ -159,15 +167,23 @@ func _connect_to_camera() -> void:
 var _ignite_frames: int = 0
 
 func _process(_delta: float) -> void:
+	_global_time += _delta
+
 	if current_vp_is_a:
 		vp_a.render_target_update_mode = SubViewport.UPDATE_ONCE
 		vp_b.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	else:
 		vp_a.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		vp_b.render_target_update_mode = SubViewport.UPDATE_ONCE
-		
+
 	current_vp_is_a = not current_vp_is_a
-	
+
+	# Update Shader Time
+	sim_mat_a.set_shader_parameter("delta_time", _delta)
+	sim_mat_a.set_shader_parameter("global_time", _global_time)
+	sim_mat_b.set_shader_parameter("delta_time", _delta)
+	sim_mat_b.set_shader_parameter("global_time", _global_time)
+
 	if _ignite_frames > 0:
 		_ignite_frames -= 1
 	else:
@@ -223,6 +239,62 @@ func _process(_delta: float) -> void:
 		if ember_proc_mat:
 			ember_proc_mat.set_shader_parameter("wind_speed", wind * 0.5)
 			ember_proc_mat.set_shader_parameter("wind_strength", wind * 0.1)
+
+	_stats_timer += _delta
+	if _stats_timer >= _stats_interval and not _is_calculating_stats:
+		_stats_timer = 0.0
+		_start_tree_stats_calculation()
+
+func _start_tree_stats_calculation() -> void:
+	var forest_gen = get_parent().get_node_or_null("Forest")
+	if not forest_gen: return
+	
+	var burn_tex = vp_a.get_texture()
+	if not burn_tex: return
+	
+	_is_calculating_stats = true
+	var img = burn_tex.get_image()
+	if not img:
+		_is_calculating_stats = false
+		return
+		
+	var tree_positions = forest_gen.get_all_tree_positions()
+	WorkerThreadPool.add_task(_calculate_stats_task.bind(img, tree_positions))
+
+func _calculate_stats_task(img: Image, tree_positions: Array) -> void:
+	var total = tree_positions.size()
+	var healthy = 0
+	var damaged = 0
+	var burnt = 0
+	
+	var img_width = img.get_width()
+	var img_height = img.get_height()
+	
+	for pos in tree_positions:
+		var uv_x = (pos.x / terrain_size) + 0.5
+		var uv_y = (pos.z / terrain_size) + 0.5
+		
+		if uv_x >= 0.0 and uv_x <= 1.0 and uv_y >= 0.0 and uv_y <= 1.0:
+			var px = clamp(int(uv_x * img_width), 0, img_width - 1)
+			var py = clamp(int(uv_y * img_height), 0, img_height - 1)
+			
+			var color = img.get_pixel(px, py)
+			# R: Fire, G: Char, B: Fuel
+			if color.g > 0.8:
+				burnt += 1
+			elif color.g > 0.05 or color.r > 0.05:
+				damaged += 1
+			else:
+				healthy += 1
+		else:
+			healthy += 1
+			
+	call_deferred("_on_stats_calculated", total, healthy, damaged, burnt)
+
+func _on_stats_calculated(total: int, healthy: int, damaged: int, burnt: int) -> void:
+	tree_stats_updated.emit(total, healthy, damaged, burnt)
+	_is_calculating_stats = false
+
 
 func _on_fire_started(world_pos: Vector3) -> void:
 	var uv_x = (world_pos.x / terrain_size) + 0.5

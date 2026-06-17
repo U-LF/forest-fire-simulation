@@ -8,6 +8,8 @@ extends Node3D
 
 @export var tree_scenes: Array[PackedScene]
 
+@export var meadow_noise: FastNoiseLite
+
 @export_group("Forest Density")
 @export var total_tree_count: int = 450000:
 	set(value):
@@ -51,6 +53,12 @@ func _ready():
 		
 	if not terrain.macro_image:
 		await terrain.terrain_ready
+	
+	if not meadow_noise:
+		meadow_noise = FastNoiseLite.new()
+		meadow_noise.seed = randi()
+		meadow_noise.frequency = 0.005 # Large sprawling meadows
+		meadow_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
 	
 	# Start generation on a background thread
 	# Using WorkerThreadPool for Godot 4 best practices
@@ -159,7 +167,7 @@ func _generate_forest_threaded():
 		
 		var placed = 0
 		var attempts = 0
-		var max_attempts = count_per_type * 12
+		var max_attempts = count_per_type * 24
 		
 		while placed < count_per_type and attempts < max_attempts:
 			attempts += 1
@@ -170,6 +178,9 @@ func _generate_forest_threaded():
 			
 			var normal = terrain.get_normal_at(x, z)
 			if normal.dot(Vector3.UP) < 0.78: continue
+			
+			# --- Meadow Mask Check ---
+			if meadow_noise.get_noise_2d(x, z) < 0.0: continue
 			
 			# --- Fast Proximity Check ---
 			var occ_x = int((x + half_width) / occ_cell_size)
@@ -389,10 +400,20 @@ func get_trees_in_chunk(world_pos: Vector3) -> Dictionary:
 		"states": PackedByteArray()
 	})
 
+func get_all_tree_positions() -> Array[Vector3]:
+	var all_positions: Array[Vector3] = []
+	for chunk_data in spatial_index.values():
+		var pos_array = chunk_data.get("positions")
+		if pos_array is PackedVector3Array:
+			for p in pos_array:
+				all_positions.append(p)
+	return all_positions
+
+
 func _scatter_trees_logic(multimesh: MultiMesh):
 	var valid_count = 0
 	var attempts = 0
-	var max_attempts = multimesh.instance_count * 5
+	var max_attempts = multimesh.instance_count * 24
 	
 	# Determine extent from terrain size
 	var extent_x = terrain.terrain_size.x / 2.0
@@ -416,6 +437,10 @@ func _scatter_trees_logic(multimesh: MultiMesh):
 		
 		# Trees usually don't grow on steep cliffs (slope < 0.85 means it's a rocky area)
 		if slope < 0.85:
+			continue
+			
+		# --- Meadow Mask Check ---
+		if meadow_noise.get_noise_2d(x, z) < 0.0:
 			continue
 			
 		var y = terrain.get_height_at(x, z)

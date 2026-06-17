@@ -12,6 +12,8 @@ uniform float current_wind = 2.0;
 uniform float current_rain = 0.0;
 uniform float current_moisture = 0.0;
 uniform float sim_speed = 1.0;
+uniform float delta_time = 0.0166;
+uniform float global_time = 0.0;
 
 // High-quality Spatial Hash (Dave Hoskins hash12)
 float rand(vec2 p) {
@@ -44,7 +46,9 @@ void fragment() {
         float fire_right = texture(state_tex, uv + vec2(texel.x, 0.0)).r;
         float neighbor_fire = max(max(fire_up, fire_down), max(fire_left, fire_right));
         
-        if (neighbor_fire > 0.5) {
+        // Spread limit: Only attempt spread twice a second per cell to fix the dice-roll issue
+        float spread_timer = mod(global_time + (uv.x + uv.y) * 10.0, 0.5);
+        if (neighbor_fire > 0.5 && spread_timer < delta_time) {
             float p_base = 0.2;
             float m_temp = mix(0.5, 1.5, smoothstep(2.2, 33.3, current_temp));
             float m_rh;
@@ -60,8 +64,8 @@ void fragment() {
             float spread_shield = current_moisture; 
             float p_ignite = (p_base * m_temp * m_rh * m_wind) * (1.0 - spread_shield);
             
-            float r = rand(uv * 100.0 + vec2(TIME));
-            if (r < p_ignite * 0.02 * sim_speed) { 
+            float r = rand(uv * 100.0 + vec2(global_time));
+            if (r < p_ignite * sim_speed) { 
                 fire = 0.2; 
             }
         }
@@ -76,28 +80,28 @@ void fragment() {
     if (fire > 0.0 || heat > 0.0) {
         // Flare up logic
         if (fire > 0.05 && fire < 1.0 && fuel > 0.0) {
-            fire = min(1.0, fire + 0.02 * sim_speed);
-            heat = min(1.0, heat + 0.01 * sim_speed);
+            fire = min(1.0, fire + 1.2 * delta_time * sim_speed);
+            heat = min(1.0, heat + 0.6 * delta_time * sim_speed);
         }
         
         // Rain Attack: Physically crushes intensity and heat
         // Heavier rain (up to 6.4mm) suppresses faster.
-        float rain_attack = current_rain * 0.005 * sim_speed;
+        float rain_attack = current_rain * 0.3 * delta_time * sim_speed;
         fire = max(0.0, fire - rain_attack);
         heat = max(0.0, heat - (rain_attack * 0.5));
         
-        // Burning consumption
+        // Burning consumption (Takes ~21s to burn 1.0 fuel at 60fps)
         if (fire > 0.05) {
-            fuel -= 0.0008 * sim_speed;
-            char_lvl = min(1.0, char_lvl + 0.001 * sim_speed);
+            fuel -= 0.048 * delta_time * sim_speed;
+            char_lvl = min(1.0, char_lvl + 0.06 * delta_time * sim_speed);
         }
         
         // Natural burnout or Premature Kill
         // If fire is killed by rain (fire <= 0.0) but fuel remains (> 0.0), it's preserved.
         if (fuel <= 0.0) {
             fuel = 0.0;
-            fire = max(0.0, fire - 0.02 * sim_speed);
-            heat = max(0.0, heat - 0.0005 * sim_speed);
+            fire = max(0.0, fire - 1.2 * delta_time * sim_speed);
+            heat = max(0.0, heat - 0.03 * delta_time * sim_speed);
         }
     }
     
