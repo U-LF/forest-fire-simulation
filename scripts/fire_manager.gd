@@ -187,6 +187,17 @@ func _process(_delta: float) -> void:
 			if ember_particles and ember_proc_mat:
 				# Do NOT move ember_particles.global_position anymore
 				ember_proc_mat.set_shader_parameter("world_offset", world_offset)
+				
+	# Update Wind for Fire/Embers
+	var weather_mgr = get_parent().get_node_or_null("WeatherManager")
+	if weather_mgr and "current_wind" in weather_mgr:
+		var wind = weather_mgr.current_wind
+		if fire_proc_mat:
+			fire_proc_mat.set_shader_parameter("wind_speed", wind * 0.5)
+			fire_proc_mat.set_shader_parameter("wind_strength", wind * 0.1)
+		if ember_proc_mat:
+			ember_proc_mat.set_shader_parameter("wind_speed", wind * 0.5)
+			ember_proc_mat.set_shader_parameter("wind_strength", wind * 0.1)
 
 func _on_fire_started(world_pos: Vector3) -> void:
 	var uv_x = (world_pos.x / terrain_size) + 0.5

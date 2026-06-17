@@ -32,6 +32,7 @@ var _max_tree_limit_cache: int = 0
 
 var spatial_index: Dictionary = {}
 var _chunks: Array[MultiMeshInstance3D] = []
+var _wind_materials: Array[ShaderMaterial] = []
 
 var _is_generating: bool = false
 
@@ -279,6 +280,8 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 			if burn_map:
 				wind_mat.set_shader_parameter("burn_map", burn_map)
 			
+			_wind_materials.append(wind_mat)
+			
 			# Set the material on the mesh surface
 			mesh.surface_set_material(s, wind_mat)
 		
@@ -351,7 +354,20 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 	print("ForestGenerator: All chunks finalized with Billboard LODs.")
 
 func _process(_delta: float) -> void:
-	pass # Removed manual shadow updates
+	if Engine.is_editor_hint():
+		return
+		
+	# Update Wind Shader Parameters
+	var weather_mgr = get_parent().get_node_or_null("WeatherManager")
+	if weather_mgr and "current_wind" in weather_mgr:
+		var wind = weather_mgr.current_wind
+		# Map weather manager wind (0.4 - 9.4) to shader wind (approx 0.5 - 5.0 speed, 0.05 - 1.0 strength)
+		var target_speed = wind * 0.5
+		var target_strength = wind * 0.1
+		
+		for mat in _wind_materials:
+			mat.set_shader_parameter("wind_speed", target_speed)
+			mat.set_shader_parameter("wind_strength", target_strength)
 
 func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
 	if node is MeshInstance3D:

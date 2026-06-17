@@ -176,3 +176,10 @@ func _update_sky(progress: float) -> void:
 	var target_high_density = lerp(0.0, 1.0, cloud_coverage)
 	_sky_material.set_shader_parameter("clouds_density", target_density)
 	_sky_material.set_shader_parameter("high_clouds_density", target_high_density)
+	
+	# Update Wind Speed for Clouds
+	var weather_mgr = get_parent().get_node_or_null("WeatherManager")
+	if weather_mgr and "current_wind" in weather_mgr:
+		var wind = weather_mgr.current_wind
+		# Map weather manager wind (0.4 - 9.4) to sky shader wind (approx 0.01 - 0.2)
+		_sky_material.set_shader_parameter("wind_speed", wind * 0.02)

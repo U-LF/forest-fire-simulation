@@ -7,6 +7,8 @@ uniform float noise_scale = 1400.0;
 uniform float height_scale = 120.0;
 uniform vec3 world_offset = vec3(0.0);
 uniform float spawn_radius = 500.0;
+uniform float wind_strength = 0.0;
+uniform float wind_speed = 0.0;
 
 // High-quality Spatial Hash (Dave Hoskins hash12)
 // Completely eliminates grid banding and center-stacking artifacts
@@ -94,12 +96,16 @@ void process() {
 
             float current_s = base_width * (0.95 + 0.05 * sin(life * 6.28)); // Very subtle pulse effect
 
+            // Wind Bending
+            // Flames bend in the wind direction (towards +X for simplicity, or we can add direction)
+            // Bend is stronger at the top of the flame
+            float bend = wind_strength * 0.5 * life; 
             
             // Apply scale to TRANSFORM: Scale Y independently to stretch the flame
             TRANSFORM[0] = vec4(current_s, 0.0, 0.0, 0.0);
-            TRANSFORM[1] = vec4(0.0, current_s * h_stretch, 0.0, 0.0);
+            TRANSFORM[1] = vec4(bend, current_s * h_stretch, 0.0, 0.0);
             TRANSFORM[2] = vec4(0.0, 0.0, current_s, 0.0);
-            TRANSFORM[3] = vec4(CUSTOM.x, CUSTOM.z + y_offset, CUSTOM.y, 1.0);
+            TRANSFORM[3] = vec4(CUSTOM.x + bend * y_offset, CUSTOM.z + y_offset, CUSTOM.y, 1.0);
         } else {
             TRANSFORM[0] = vec4(0.0);
             TRANSFORM[1] = vec4(0.0);

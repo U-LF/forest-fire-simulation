@@ -7,6 +7,8 @@ uniform float noise_scale = 1400.0;
 uniform float height_scale = 120.0;
 uniform vec3 world_offset = vec3(0.0);
 uniform float spawn_radius = 500.0;
+uniform float wind_strength = 0.0;
+uniform float wind_speed = 0.0;
 
 // High-quality Spatial Hash (Dave Hoskins hash12)
 // Completely eliminates grid banding and center-stacking artifacts
@@ -104,11 +106,15 @@ void process() {
             float s_curve = sin(life * 3.1415);
             float s = s_base * s_curve;
 
+            // Wind Drift
+            float wind_drift_x = wind_strength * life * 20.0;
+            float wind_drift_z = wind_strength * life * 5.0; // Slight side drift
+
             TRANSFORM[0] = vec4(s, 0.0, 0.0, 0.0);
             TRANSFORM[1] = vec4(0.0, s, 0.0, 0.0);
             TRANSFORM[2] = vec4(0.0, 0.0, s, 0.0);
             // Use locked CUSTOM.x/y/z for base position
-            TRANSFORM[3] = vec4(CUSTOM.x + jitter_x, CUSTOM.z + lift + 0.5, CUSTOM.y + jitter_z, 1.0);
+            TRANSFORM[3] = vec4(CUSTOM.x + jitter_x + wind_drift_x, CUSTOM.z + lift + 0.5, CUSTOM.y + jitter_z + wind_drift_z, 1.0);
             
         } else {
             TRANSFORM[0] = vec4(0.0);

@@ -115,6 +115,17 @@ func _process(delta: float) -> void:
 			rain_particles.emitting = false
 			
 		rain_particles.amount_ratio = clamp(current_rain / rain_max, 0.01, 1.0)
+		
+		# Wind-blown rain logic
+		if rain_particles.process_material is ParticleProcessMaterial:
+			var p_mat = rain_particles.process_material as ParticleProcessMaterial
+			# Base downward direction (0, -1, 0)
+			# Add wind influence (towards +X for consistency)
+			var wind_influence = current_wind * 0.1
+			p_mat.direction = Vector3(wind_influence, -1.0, 0.0).normalized()
+			# Increase speed slightly with wind
+			p_mat.initial_velocity_min = 30.0 + current_wind * 2.0
+			p_mat.initial_velocity_max = 45.0 + current_wind * 3.0
 	
 	_handle_lightning(delta, is_raining)
 

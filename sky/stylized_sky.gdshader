@@ -15,6 +15,7 @@ uniform float clouds_scale : hint_range(0.5, 1.5, 0.1) = 1.0;
 uniform float clouds_smoothness : hint_range(0.01, 0.1, 0.01) = 0.035;
 uniform vec3 clouds_light_color : source_color;
 uniform float clouds_shadow_intensity : hint_range(0.1, 10.0, 0.1) = 1.0;
+uniform float wind_speed : hint_range(0.0, 2.0) = 0.1;
 
 group_uniforms high_clouds;
 
@@ -91,8 +92,8 @@ mat3 direction_to_matrix(vec3 direction) {
 }
 
 float cloud_density(vec3 p, float progress){
-	float t_o = TIME * 0.001;
-	float t_o_small = TIME * -0.005;
+	float t_o = TIME * wind_speed * 0.1;
+	float t_o_small = TIME * wind_speed * -0.5;
 	float noise = texture(cloud_noise_sampler, p.xy * 4.0 + t_o_small).x * 0.1 + 0.9;
 	float clouds_shape = texture(cloud_shape_sampler, (p.xy + t_o) * clouds_scale).x;
 	float height_curve = texture(cloud_curves, vec2(progress, 0.0)).x;
@@ -241,7 +242,7 @@ void sky() {
 	// Add high clouds
 	
 	if(high_clouds_density > 0.0){
-		vec2 high_clouds_uv = (EYEDIR.xz / clamp(EYEDIR.y, 0.0, 1.0)) * 0.25 + TIME * 0.001;
+		vec2 high_clouds_uv = (EYEDIR.xz / clamp(EYEDIR.y, 0.0, 1.0)) * 0.25 + TIME * wind_speed * 0.05;
 		float high_clouds_mask = texture(high_clouds_sampler, high_clouds_uv).x;
 		sky_color = mix(sky_color, clouds_light_color, smoothstep(0.0, 1.0, high_clouds_mask) * horizon_mask * bottom_mask * high_clouds_density);
 	}
