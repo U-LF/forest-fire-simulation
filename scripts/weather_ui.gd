@@ -99,14 +99,19 @@ func _process(_delta: float) -> void:
 		m_rh = remap(clamp(rh, 30.0, 80.0), 30.0, 80.0, 1.5, 0.3)
 		
 	var m_wind = remap(clamp(wind, 0.4, 9.4), 0.4, 9.4, 1.0, 2.5)
-	var r_penalty = remap(clamp(rain, 0.0, 6.4), 0.0, 6.4, 0.0, 0.4)
 	
-	var p_ignite = (p_base * m_temp * m_rh * m_wind) - r_penalty
+	# Update Rain Shield Logic (Uses persistent moisture)
+	var moisture = 0.0
+	if "current_moisture" in weather_manager:
+		moisture = weather_manager.current_moisture
+		
+	var rain_shield = moisture
+	var p_ignite = (p_base * m_temp * m_rh * m_wind) * (1.0 - rain_shield)
 	p_ignite = clamp(p_ignite, 0.0, 1.0)
 	
 	fire_progress_bar.value = p_ignite * 100.0
-	fire_factors_label.text = "Factors: T:%.1fx  RH:%.1fx  W:%.1fx  R:-%d%%" % [
-		m_temp, m_rh, m_wind, int(r_penalty * 100.0)
+	fire_factors_label.text = "Factors: T:%.1fx  RH:%.1fx  W:%.1fx  Shield:%d%%" % [
+		m_temp, m_rh, m_wind, int(rain_shield * 100.0)
 	]
 	
 	# Update Forecast

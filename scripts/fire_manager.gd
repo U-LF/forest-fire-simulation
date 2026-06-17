@@ -195,6 +195,9 @@ func _process(_delta: float) -> void:
 		var temp = weather_mgr.current_temp
 		var rh = weather_mgr.current_rh
 		var rain = weather_mgr.current_rain
+		var moisture = 0.0
+		if "current_moisture" in weather_mgr:
+			moisture = weather_mgr.current_moisture
 		var time_scale = 1.0
 		if "time_scale" in weather_mgr:
 			time_scale = weather_mgr.time_scale
@@ -204,12 +207,14 @@ func _process(_delta: float) -> void:
 		sim_mat_a.set_shader_parameter("current_rh", rh)
 		sim_mat_a.set_shader_parameter("current_wind", wind)
 		sim_mat_a.set_shader_parameter("current_rain", rain)
+		sim_mat_a.set_shader_parameter("current_moisture", moisture)
 		sim_mat_a.set_shader_parameter("sim_speed", time_scale)
 		
 		sim_mat_b.set_shader_parameter("current_temp", temp)
 		sim_mat_b.set_shader_parameter("current_rh", rh)
 		sim_mat_b.set_shader_parameter("current_wind", wind)
 		sim_mat_b.set_shader_parameter("current_rain", rain)
+		sim_mat_b.set_shader_parameter("current_moisture", moisture)
 		sim_mat_b.set_shader_parameter("sim_speed", time_scale)
 		
 		if fire_proc_mat:

@@ -31,6 +31,7 @@ var current_temp: float = 20.0
 var current_rh: float = 50.0
 var current_wind: float = 2.0
 var current_rain: float = 0.0
+var current_moisture: float = 0.0 # 0.0 to 1.0 persistent saturation
 
 # Tracks linear temperature drop during rain
 var temp_drop_offset: float = 0.0
@@ -104,6 +105,8 @@ func _process(delta: float) -> void:
 	cloud_coverage = clamp(cloud_coverage, 0.0, 1.0)
 	
 	# Update External Systems
+	_handle_moisture(delta)
+	
 	if day_night_cycle:
 		day_night_cycle.cloud_coverage = cloud_coverage
 		day_night_cycle.rain_intensity = clamp(current_rain / rain_max, 0.0, 1.0)
@@ -128,6 +131,30 @@ func _process(delta: float) -> void:
 			p_mat.initial_velocity_max = 45.0 + current_wind * 3.0
 	
 	_handle_lightning(delta, is_raining)
+
+func _handle_moisture(delta: float) -> void:
+	# 1. Charging (Rain Suffix)
+	# Moisture increases rapidly when it's actually raining.
+	if current_rain > 0.1:
+		# Saturates to 100% (1.0) quickly in heavy rain
+		var charge_rate = remap(current_rain, 0.0, rain_max, 0.05, 0.2)
+		current_moisture = move_toward(current_moisture, 1.0, delta * charge_rate * time_scale)
+	else:
+		# 2. Drying Process (Evaporation)
+		# Factors: High Temp, Low RH, High Wind
+		
+		# Temp Factor (2.2 to 33.3 -> 0.2x to 1.5x speed)
+		var f_temp = remap(current_temp, temp_min, temp_max, 0.2, 1.5)
+		# RH Factor (15 to 100 -> 1.5x down to 0.1x speed) - dry air pulls moisture
+		var f_rh = remap(current_rh, rh_min, rh_max, 1.5, 0.1)
+		# Wind Factor (0.4 to 9.4 -> 1.0x to 2.5x speed)
+		var f_wind = remap(current_wind, wind_min, wind_max, 1.0, 2.5)
+		
+		# Base evaporation rate (approx 5-10 real minutes to dry at 1x time_scale)
+		var base_drying_rate = 0.01 
+		var drying_speed = base_drying_rate * f_temp * f_rh * f_wind
+		
+		current_moisture = move_toward(current_moisture, 0.0, delta * drying_speed * time_scale)
 
 func trigger_lightning_intervention() -> void:
 	if lightning_light:
