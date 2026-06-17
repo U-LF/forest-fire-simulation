@@ -14,6 +14,7 @@
 [ext_resource type="Script" uid="uid://bc0tx4wupvju1" path="res://scripts/grass_manager.gd" id="11_grass_mgr"]
 [ext_resource type="PackedScene" uid="uid://dj310rbu6sg43" path="res://Nature kit/Models/GLTF format/grass.glb" id="12_grass"]
 [ext_resource type="Script" uid="uid://b4ibv4j624fcd" path="res://scripts/fire_manager.gd" id="13_fire_mgr"]
+[ext_resource type="PackedScene" uid="uid://c8j7k3n3d8m5p" path="res://scenes/weather_ui.tscn" id="14_weather_ui"]
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = ExtResource("1_sky")
@@ -180,3 +181,5 @@ grass_scene = ExtResource("12_grass")
 
 [node name="FireManager" type="Node" parent="." unique_id=1721876124]
 script = ExtResource("13_fire_mgr")
+
+[node name="WeatherUI" parent="." unique_id=938746295 instance=ExtResource("14_weather_ui")]

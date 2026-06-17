@@ -1,0 +1,102 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8j7k3n3d8m5p"]
+
+[ext_resource type="Script" path="res://scripts/weather_ui.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.08, 0.1, 0.15, 0.85)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 15
+
+[node name="WeatherUI" type="CanvasLayer"]
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -340.0
+offset_bottom = 500.0
+grow_horizontal = 0
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+
+[node name="Panel" type="PanelContainer" parent="Margin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="Padding" type="MarginContainer" parent="Margin/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="MainVBox" type="VBoxContainer" parent="Margin/Panel/Padding"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="CurrentHeader" type="Label" parent="Margin/Panel/Padding/MainVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.6, 0.7, 1)
+theme_override_font_sizes/font_size = 13
+text = "CURRENT CONDITIONS"
+
+[node name="CurrentHBox" type="HBoxContainer" parent="Margin/Panel/Padding/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="LeftCol" type="VBoxContainer" parent="Margin/Panel/Padding/MainVBox/CurrentHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="TempBig" type="Label" parent="Margin/Panel/Padding/MainVBox/CurrentHBox/LeftCol"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "--°"
+
+[node name="ConditionBig" type="Label" parent="Margin/Panel/Padding/MainVBox/CurrentHBox/LeftCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Loading..."
+
+[node name="RightCol" type="VBoxContainer" parent="Margin/Panel/Padding/MainVBox/CurrentHBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="RHLabel" type="Label" parent="Margin/Panel/Padding/MainVBox/CurrentHBox/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 15
+text = "💧 --%"
+
+[node name="WindLabel" type="Label" parent="Margin/Panel/Padding/MainVBox/CurrentHBox/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 15
+text = "💨 -- km/h"
+
+[node name="RainLabel" type="Label" parent="Margin/Panel/Padding/MainVBox/CurrentHBox/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 15
+text = "☔ -- mm"
+
+[node name="HSeparator" type="HSeparator" parent="Margin/Panel/Padding/MainVBox"]
+layout_mode = 2
+
+[node name="ForecastHeader" type="Label" parent="Margin/Panel/Padding/MainVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.6, 0.7, 1)
+theme_override_font_sizes/font_size = 13
+text = "7-DAY FORECAST"
+
+[node name="ForecastList" type="VBoxContainer" parent="Margin/Panel/Padding/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
