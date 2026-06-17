@@ -110,7 +110,8 @@ func _process(_delta: float) -> void:
 	]
 	
 	# Update Forecast
-	var day_offset = day_night_cycle.day_duration * weather_manager.time_scale
+	# A full day in _time_elapsed units is exactly the day_duration (60.0)
+	var day_offset = day_night_cycle.day_duration
 	var current_day_idx = floor(weather_manager._time_elapsed / day_offset)
 	
 	for i in range(7):

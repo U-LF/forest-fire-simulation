@@ -10,6 +10,7 @@ uniform float current_temp = 20.0;
 uniform float current_rh = 50.0;
 uniform float current_wind = 2.0;
 uniform float current_rain = 0.0;
+uniform float sim_speed = 1.0;
 
 // High-quality Spatial Hash (Dave Hoskins hash12)
 float rand(vec2 p) {
@@ -80,7 +81,9 @@ void fragment() {
             
             // Roll the dice
             float r = rand(uv * 100.0 + vec2(TIME));
-            if (r < p_ignite * 0.1) { // Normalized for the high simulation framerate
+            // Normalized for the high simulation framerate and scaled by sim_speed
+            // Reduced spread frequency (0.02) to feel more "heavy"
+            if (r < p_ignite * 0.02 * sim_speed) { 
                 fire += 0.2; 
             }
         }
@@ -90,22 +93,22 @@ void fragment() {
         }
     }
     
-    // Fast burn logic for testing with explicit Heat lifecycle
+    // Realistic burn logic for testing with explicit Heat lifecycle
     if (fire > 0.0 || heat > 0.0) {
         if (fire > 0.05 && fuel > 0.0) { 
-            fire = min(1.0, fire + 0.1); // Rapid flare up
-            heat = min(1.0, heat + 0.05); // Heat up quickly
+            fire = min(1.0, fire + 0.02 * sim_speed); // Slower flare up
+            heat = min(1.0, heat + 0.01 * sim_speed); // Slower heat up
         }
         
         if (fire > 0.0) {
-            fuel -= 0.005; // ~3.3 seconds to burn out
-            char_lvl += 0.01; // Rapid charring
+            fuel -= 0.0008 * sim_speed; // ~1250 frames (approx 20 real seconds at 1x)
+            char_lvl += 0.001 * sim_speed; // Slower charring
         }
         
         if (fuel <= 0.0) {
             fuel = 0.0;
-            fire -= 0.1; // Rapid die down
-            heat -= 0.003; // Slowly cool off (~5.5 seconds of residual heat)
+            fire -= 0.02 * sim_speed; // Slower die down
+            heat -= 0.0005 * sim_speed; // Slower cooling
         }
     }    
     fire = clamp(fire, 0.0, 1.0);

@@ -41,9 +41,14 @@ func _ready() -> void:
 	_time = 0.25 * day_duration 
 
 func _process(delta: float) -> void:
-	_time += delta
+	var weather_mgr = get_parent().get_node_or_null("WeatherManager")
+	var current_time_scale = 1.0
+	if weather_mgr and "time_scale" in weather_mgr:
+		current_time_scale = weather_mgr.time_scale
+		
+	_time += delta * current_time_scale
 	if _time >= day_duration:
-		_time = 0.0
+		_time = fmod(_time, day_duration)
 	
 	var progress = _time / day_duration
 	
