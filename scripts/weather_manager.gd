@@ -5,16 +5,35 @@ extends Node3D
 @export var lightning_light: DirectionalLight3D
 @export var terrain: Node3D
 
-@export var check_interval: float = 20.0 # Evaluate weather shifts more frequently
-var _time_since_last_check: float = 0.0
+@export_group("Atmospheric Parameters")
+@export var temp_min: float = 2.2
+@export var temp_max: float = 33.3
+@export var rh_min: float = 15.0
+@export var rh_max: float = 100.0
+@export var wind_min: float = 0.4
+@export var wind_max: float = 9.4
+@export var rain_min: float = 0.0
+@export var rain_max: float = 6.4
+@export var rh_rain_threshold: float = 85.0
+@export var time_scale: float = 10.0 # Time multiplier for noise progression
+
+var _time_elapsed: float = 0.0
 var _lightning_timer: float = 0.0
 
-var cloud_coverage: float = 0.0
-var rain_intensity: float = 0.0
+# 1D Simplex Noises for atmospheric progression
+var noise_temp: FastNoiseLite
+var noise_rh: FastNoiseLite
+var noise_wind: FastNoiseLite
+var noise_rain: FastNoiseLite
 
-var target_cloud_coverage: float = 0.0
-var target_rain_intensity: float = 0.0
-var rain_shift_speed: float = 0.05
+# Current atmospheric state
+var current_temp: float = 20.0
+var current_rh: float = 50.0
+var current_wind: float = 2.0
+var current_rain: float = 0.0
+
+# Tracks linear temperature drop during rain
+var temp_drop_offset: float = 0.0
 
 func _ready() -> void:
 	if rain_particles:
@@ -24,92 +43,91 @@ func _ready() -> void:
 			Vector3(-2000.0, -200.0, -2000.0),
 			Vector3(4000.0, 400.0, 4000.0)
 		)
-		var process_mat = rain_particles.process_material as ParticleProcessMaterial
 
 	if lightning_light:
 		lightning_light.light_energy = 0.0
 	
-	_check_weather()
-	# Apply initial state immediately so we don't start at 0 if the roll is rain
-	cloud_coverage = target_cloud_coverage
-	rain_intensity = min(target_rain_intensity, smoothstep(0.3, 0.8, cloud_coverage))
+	# Setup continuous noise generators
+	noise_temp = FastNoiseLite.new()
+	noise_temp.seed = randi()
+	noise_temp.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise_temp.frequency = 0.01
+
+	noise_rh = FastNoiseLite.new()
+	noise_rh.seed = randi()
+	noise_rh.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise_rh.frequency = 0.015
+	
+	noise_wind = FastNoiseLite.new()
+	noise_wind.seed = randi()
+	noise_wind.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise_wind.frequency = 0.05 # Wind fluctuates faster
+
+	noise_rain = FastNoiseLite.new()
+	noise_rain.seed = randi()
+	noise_rain.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise_rain.frequency = 0.02
 
 func _process(delta: float) -> void:
-	# Localize rain particles to camera
-	var cam = get_viewport().get_camera_3d()
-	if cam and rain_particles:
-		var cam_pos = cam.global_position
-		rain_particles.global_position.x = cam_pos.x
-		rain_particles.global_position.z = cam_pos.z
-
-	_time_since_last_check += delta
-	if _time_since_last_check >= check_interval:
-		_time_since_last_check = 0.0
-		_check_weather()
+	_time_elapsed += delta * time_scale
 	
-	# Clouds form or dissipate smoothly and continuously
-	cloud_coverage = move_toward(cloud_coverage, target_cloud_coverage, delta * 0.03)
+	# Sample noises (-1.0 to 1.0)
+	var raw_temp = noise_temp.get_noise_1d(_time_elapsed)
+	var raw_rh = noise_rh.get_noise_1d(_time_elapsed)
+	var raw_wind = noise_wind.get_noise_1d(_time_elapsed)
 	
-	# Rain MUST wait for clouds. We clamp the target rain by the current cloud coverage.
-	# e.g., 100% rain requires 80%+ clouds. If clouds are at 50%, rain is capped low.
-	var max_allowed_rain = smoothstep(0.3, 0.8, cloud_coverage)
-	var current_target_rain = min(target_rain_intensity, max_allowed_rain)
+	# Map values to real-world bounds
+	var base_temp = remap(raw_temp, -1.0, 1.0, temp_min, temp_max)
+	current_rh = remap(raw_rh, -1.0, 1.0, rh_min, rh_max)
+	current_wind = remap(raw_wind, -1.0, 1.0, wind_min, wind_max)
 	
-	# Move actual rain intensity toward the allowed target
-	rain_intensity = move_toward(rain_intensity, current_target_rain, delta * rain_shift_speed)
+	# Threshold-Driven State: Rain Trigger
+	var is_raining = current_rh >= rh_rain_threshold
+	if is_raining:
+		var raw_rain = noise_rain.get_noise_1d(_time_elapsed)
+		var target_rain = remap(raw_rain, -1.0, 1.0, rain_min, rain_max)
+		# Continuous volume tracking toward the target
+		current_rain = move_toward(current_rain, target_rain, delta * 2.0)
+		
+		# Rain state drops local temperature linearly over time
+		temp_drop_offset -= delta * 1.5
+	else:
+		current_rain = move_toward(current_rain, 0.0, delta * 1.5)
+		# Recover temperature smoothly when not raining
+		temp_drop_offset = move_toward(temp_drop_offset, 0.0, delta * 0.5)
+		
+	# Final calculated temperature
+	current_temp = clamp(base_temp + temp_drop_offset, temp_min, temp_max)
+	
+	# Derive visual cloud coverage from RH
+	var cloud_coverage = remap(current_rh, 30.0, 100.0, 0.0, 1.0)
+	cloud_coverage = clamp(cloud_coverage, 0.0, 1.0)
 	
 	# Update External Systems
 	if day_night_cycle:
 		day_night_cycle.cloud_coverage = cloud_coverage
-		day_night_cycle.rain_intensity = rain_intensity
+		day_night_cycle.rain_intensity = clamp(current_rain / rain_max, 0.0, 1.0)
 	
 	if rain_particles:
-		if rain_intensity > 0.01 and not rain_particles.emitting:
+		if current_rain > 0.01 and not rain_particles.emitting:
 			rain_particles.emitting = true
-		elif rain_intensity <= 0.01 and rain_particles.emitting:
+		elif current_rain <= 0.01 and rain_particles.emitting:
 			rain_particles.emitting = false
 			
-		rain_particles.amount_ratio = max(0.01, rain_intensity)
+		rain_particles.amount_ratio = clamp(current_rain / rain_max, 0.01, 1.0)
 	
-	_handle_lightning(delta)
+	_handle_lightning(delta, is_raining)
 
-func _check_weather() -> void:
-	# Procedural Weather Roll
-	var rand_weather = randf()
-	
-	if rand_weather < 0.50:
-		# 50% chance: Clear / Partly Cloudy
-		target_cloud_coverage = randf_range(0.0, 0.3)
-		target_rain_intensity = 0.0
-		rain_shift_speed = randf_range(0.05, 0.1) # Stop rain gradually
-		
-	elif rand_weather < 0.80:
-		# 30% chance: Overcast / Gloomy (maybe light drizzle)
-		target_cloud_coverage = randf_range(0.5, 0.8)
-		if randf() > 0.5:
-			target_rain_intensity = randf_range(0.05, 0.2) # Very light drizzle
-		else:
-			target_rain_intensity = 0.0
-		rain_shift_speed = randf_range(0.02, 0.05) # Very slow, ambient transition
-		
-	else:
-		# 20% chance: Proper Rain / Storm
-		target_cloud_coverage = randf_range(0.8, 1.0)
-		
-		# Roll for storm severity
-		if randf() > 0.7:
-			# Sudden heavy downpour
-			target_rain_intensity = randf_range(0.7, 1.0)
-			rain_shift_speed = randf_range(0.1, 0.2) # Speeds up fast once clouds are ready
-		else:
-			# Normal steady rain
-			target_rain_intensity = randf_range(0.3, 0.6)
-			rain_shift_speed = randf_range(0.02, 0.06) # Gradual build-up
+func trigger_lightning_intervention() -> void:
+	if lightning_light:
+		lightning_light.rotation.x = -PI/2.0 + randf_range(-0.5, 0.5)
+		lightning_light.rotation.y = randf_range(0, 2.0 * PI)
+		lightning_light.light_energy = randf_range(5.0, 15.0)
+	_spawn_lightning_strike()
 
-func _handle_lightning(delta: float) -> void:
-	# Lightning only occurs during heavy rain and thick clouds
-	if target_cloud_coverage < 0.8 or rain_intensity < 0.5:
-		# Make sure lightning flash fades out if storm ends
+func _handle_lightning(delta: float, is_raining: bool) -> void:
+	# Lightning occurs mostly during heavy rain naturally
+	if not is_raining or current_rain < (rain_max * 0.5):
 		if lightning_light and lightning_light.light_energy > 0.0:
 			lightning_light.light_energy = lerp(lightning_light.light_energy, 0.0, delta * 15.0)
 		return
@@ -120,17 +138,11 @@ func _handle_lightning(delta: float) -> void:
 	if lightning_light and lightning_light.light_energy > 0.0:
 		lightning_light.light_energy = lerp(lightning_light.light_energy, 0.0, delta * 15.0)
 	
+	# Regular interval trigger based on storm severity
 	if _lightning_timer <= 0.0:
-		# Trigger lightning - more frequent in heavier rain
-		var frequency_modifier = 1.0 - rain_intensity
-		_lightning_timer = randf_range(2.0, 6.0 + (frequency_modifier * 10.0)) 
-		
-		if lightning_light:
-			lightning_light.rotation.x = -PI/2.0 + randf_range(-0.5, 0.5)
-			lightning_light.rotation.y = randf_range(0, 2.0 * PI)
-			lightning_light.light_energy = randf_range(5.0, 15.0)
-		
-		_spawn_lightning_strike()
+		var frequency_modifier = 1.0 - (current_rain / rain_max)
+		_lightning_timer = randf_range(3.0, 8.0 + (frequency_modifier * 15.0)) 
+		trigger_lightning_intervention()
 
 func _spawn_lightning_strike() -> void:
 	var range_x = 40.0
@@ -140,6 +152,7 @@ func _spawn_lightning_strike() -> void:
 		range_x = terrain.terrain_size.x / 2.0
 		range_z = terrain.terrain_size.y / 2.0
 		
+	# Chooses a random coordinate on the active Terrain
 	var strike_pos = Vector3(randf_range(-range_x, range_x), 0, randf_range(-range_z, range_z))
 	
 	if terrain:
@@ -159,16 +172,30 @@ func _spawn_lightning_strike() -> void:
 		if i == segments - 1:
 			points.append(strike_pos) # Guarantee it hits the ground target
 		else:
-			# Jitter the next point
 			var jitter_x = randf_range(-10.0, 10.0)
 			var jitter_z = randf_range(-10.0, 10.0)
 			current_pos -= Vector3(jitter_x, segment_length, jitter_z)
 			points.append(current_pos)
 	
-	# Create an ImmediateMesh for the lightning line
-	var mesh_inst = MeshInstance3D.new()
-	var imm_mesh = ImmediateMesh.new()
-	mesh_inst.mesh = imm_mesh
+	# Create a Path3D and CSGPolygon3D for a volumetric lightning bolt
+	var path = Path3D.new()
+	var curve = Curve3D.new()
+	for p in points:
+		curve.add_point(p)
+	path.curve = curve
+	add_child(path)
+	
+	var csg = CSGPolygon3D.new()
+	csg.mode = CSGPolygon3D.MODE_PATH
+	csg.path_node = csg.get_path_to(path)
+	# A simple square profile provides a robust 3D volume
+	var thickness = 0.5
+	csg.polygon = PackedVector2Array([
+		Vector2(-thickness, -thickness), 
+		Vector2(thickness, -thickness), 
+		Vector2(thickness, thickness), 
+		Vector2(-thickness, thickness)
+	])
 	
 	var mat = StandardMaterial3D.new()
 	mat.albedo_color = Color(0.8, 0.9, 1.0)
@@ -178,15 +205,8 @@ func _spawn_lightning_strike() -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mesh_inst.material_override = mat
-	
-	# Draw the line
-	imm_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
-	for p in points:
-		imm_mesh.surface_add_vertex(p)
-	imm_mesh.surface_end()
-	
-	add_child(mesh_inst)
+	csg.material = mat
+	path.add_child(csg)
 	
 	var omni = OmniLight3D.new()
 	omni.light_color = Color(0.8, 0.9, 1.0)
@@ -198,8 +218,7 @@ func _spawn_lightning_strike() -> void:
 	# Fade out animation
 	var tween = create_tween()
 	tween.tween_interval(0.05)
-	# Fade alpha for a more realistic disappearance
 	tween.tween_property(mat, "albedo_color:a", 0.0, 0.2)
 	tween.parallel().tween_property(omni, "light_energy", 0.0, 0.2)
-	tween.tween_callback(mesh_inst.queue_free)
+	tween.tween_callback(path.queue_free)
 	tween.tween_callback(omni.queue_free)
