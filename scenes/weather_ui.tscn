@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://c8j7k3n3d8m5p"]
+[gd_scene load_steps=5 format=3 uid="uid://c8j7k3n3d8m5p"]
 
 [ext_resource type="Script" path="res://scripts/weather_ui.gd" id="1_script"]
 
@@ -11,6 +11,25 @@ corner_radius_bottom_left = 16
 shadow_color = Color(0, 0, 0, 0.3)
 shadow_size = 15
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_FireBG"]
+bg_color = Color(0.1, 0.1, 0.1, 0.5)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_FireFill"]
+bg_color = Color(1, 0.4, 0.1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.6, 0.2, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [node name="WeatherUI" type="CanvasLayer"]
 script = ExtResource("1_script")
 
@@ -19,7 +38,7 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -340.0
-offset_bottom = 500.0
+offset_bottom = 720.0
 grow_horizontal = 0
 theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
@@ -87,6 +106,75 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
 theme_override_font_sizes/font_size = 15
 text = "☔ -- mm"
+
+[node name="FireRiskBox" type="VBoxContainer" parent="Margin/Panel/Padding/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FireHeader" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.4, 0.2, 1)
+theme_override_font_sizes/font_size = 13
+text = "IGNITION PROBABILITY"
+
+[node name="FireProgressBar" type="ProgressBar" parent="Margin/Panel/Padding/MainVBox/FireRiskBox"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_FireBG")
+theme_override_styles/fill = SubResource("StyleBoxFlat_FireFill")
+value = 45.0
+show_percentage = false
+
+[node name="Intervals" type="HBoxContainer" parent="Margin/Panel/Padding/MainVBox/FireRiskBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="L1" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox/Intervals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "20%"
+horizontal_alignment = 1
+
+[node name="L2" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox/Intervals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "40%"
+horizontal_alignment = 1
+
+[node name="L3" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox/Intervals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "60%"
+horizontal_alignment = 1
+
+[node name="L4" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox/Intervals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "80%"
+horizontal_alignment = 1
+
+[node name="L5" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox/Intervals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "100%"
+horizontal_alignment = 1
+
+[node name="FactorsLabel" type="Label" parent="Margin/Panel/Padding/MainVBox/FireRiskBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 11
+text = "Factors: T:1.0x  RH:1.0x  W:1.0x  R:-0%"
+horizontal_alignment = 1
 
 [node name="HSeparator" type="HSeparator" parent="Margin/Panel/Padding/MainVBox"]
 layout_mode = 2

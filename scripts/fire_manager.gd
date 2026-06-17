@@ -192,6 +192,21 @@ func _process(_delta: float) -> void:
 	var weather_mgr = get_parent().get_node_or_null("WeatherManager")
 	if weather_mgr and "current_wind" in weather_mgr:
 		var wind = weather_mgr.current_wind
+		var temp = weather_mgr.current_temp
+		var rh = weather_mgr.current_rh
+		var rain = weather_mgr.current_rain
+		
+		# Update Simulation Material
+		sim_mat_a.set_shader_parameter("current_temp", temp)
+		sim_mat_a.set_shader_parameter("current_rh", rh)
+		sim_mat_a.set_shader_parameter("current_wind", wind)
+		sim_mat_a.set_shader_parameter("current_rain", rain)
+		
+		sim_mat_b.set_shader_parameter("current_temp", temp)
+		sim_mat_b.set_shader_parameter("current_rh", rh)
+		sim_mat_b.set_shader_parameter("current_wind", wind)
+		sim_mat_b.set_shader_parameter("current_rain", rain)
+		
 		if fire_proc_mat:
 			fire_proc_mat.set_shader_parameter("wind_speed", wind * 0.5)
 			fire_proc_mat.set_shader_parameter("wind_strength", wind * 0.1)
