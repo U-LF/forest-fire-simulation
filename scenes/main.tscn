@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://dj310rbu6sg43" path="res://Nature kit/Models/GLTF format/grass.glb" id="12_grass"]
 [ext_resource type="Script" uid="uid://b4ibv4j624fcd" path="res://scripts/fire_manager.gd" id="13_fire_mgr"]
 [ext_resource type="PackedScene" uid="uid://c8j7k3n3d8m5p" path="res://scenes/weather_ui.tscn" id="14_weather_ui"]
+[ext_resource type="Script" uid="uid://dg8ermlhc41bj" path="res://scripts/main.gd" id="15_main"]
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = ExtResource("1_sky")
@@ -85,6 +86,7 @@ radial_segments = 4
 rings = 4
 
 [node name="Main" type="Node3D" unique_id=2086738227]
+script = ExtResource("15_main")
 
 [node name="WeatherManager" type="Node3D" parent="." unique_id=751555145 node_paths=PackedStringArray("day_night_cycle", "rain_particles", "lightning_light", "terrain")]
 script = ExtResource("4_weather")

@@ -1,6 +1,8 @@
 @tool
 extends Node3D
 
+signal forest_ready
+
 @export var terrain: StaticBody3D:
 	set(value):
 		terrain = value
@@ -394,6 +396,7 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows, fuel_img):
 			
 	_is_generating = false
 	print("ForestGenerator: All chunks finalized with Billboard LODs.")
+	forest_ready.emit()
 
 func _process(_delta: float) -> void:
 	if Engine.is_editor_hint():

@@ -55,6 +55,7 @@ shader_parameter/clouds_scale = 1.0
 shader_parameter/clouds_smoothness = 0.05
 shader_parameter/clouds_light_color = Color(0.227451, 0.447059, 1, 1)
 shader_parameter/clouds_shadow_intensity = 8.0
+shader_parameter/wind_speed = 0.1
 shader_parameter/high_clouds_sampler = SubResource("NoiseTexture2D_ol2j5")
 shader_parameter/high_clouds_density = 0.0
 shader_parameter/top_color = Color(0.027451, 0.101961, 0.25098, 1)
