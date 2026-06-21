@@ -14,9 +14,11 @@ This project simulates a fully dynamic, procedural 4km x 4km forested environmen
 The fire propagation logic is entirely GPU-driven using a cellular automata approach.
 - **Ping-Pong Buffers:** Uses two `SubViewport` nodes set to `CLEAR_MODE_NEVER` and `use_hdr_2d = true` (16-bit float precision). They alternate updates frame-by-frame to accumulate simulation data continuously.
 - **State Tracking:** The simulation texture encodes `Red=Fire`, `Green=Char`, `Blue=Fuel`, and `Alpha=Heat`.
-- **Environmental Factors:** Spread probability and intensity are dynamically influenced by real-time Temperature, Relative Humidity, Wind Speed, and Moisture.
-- **Moisture Shield:** A persistent moisture value protects terrain from igniting, and decays dynamically based on the current temp, RH, and wind. Rain physically suppresses active fires.
-- **High-Quality Randomness:** Uses the Dave Hoskins `hash12` algorithm in the shader for natural, non-grid-like fire spread.
+- **Heat Accumulation Physics:** Fire spread is no longer based on random dice rolls. Cells physically accumulate radiant heat from burning neighbors, dynamically scaling against environmental cooling factors. A weak grass fire cools down too fast to easily ignite a massive tree.
+- **Dynamic Fuel Maps:** The simulation reads a procedurally generated Fuel Map texture. Trees (1.0 fuel) radiate immense heat, while grass (0.4 fuel) burns weaker. Rocks and dirt (0.0 fuel) act as natural firebreaks.
+- **Directional Wind Vectors:** Wind acts directionally via dot product calculations. Fire transfers heat exponentially faster downwind, creating realistic, jagged fire wedges, while severely struggling to burn upwind.
+- **Environmental Factors:** Cooling is dynamically influenced by real-time Temperature, Relative Humidity, Wind Speed, and Moisture.
+- **Absolute Dew Point Cutoffs:** A persistent moisture value protects terrain from igniting. If ambient humidity crosses extreme thresholds, the physical cooling rate prevents spontaneous ignition entirely.
 - **Asynchronous Stats:** A `WorkerThreadPool` task asynchronously reads the texture data to count healthy, damaged, and burnt trees without stalling the main thread.
 
 ### 2. Procedural Forest Generation
@@ -24,15 +26,17 @@ The fire propagation logic is entirely GPU-driven using a cellular automata appr
 
 Generates a massive, dense forest spanning the 4000x4000 terrain.
 - **Multithreading:** Generation runs entirely on a background thread using `WorkerThreadPool`.
+- **Procedural Fuel Map:** Simultaneously evaluates slopes, tree placements, and high-frequency "dirt noise" to paint a massive 2048x2048 Fuel Map Texture, injected directly into the fire shader.
 - **Occupancy Grid & Proximity Checks:** Employs a highly optimized 1D byte array as an occupancy grid to ensure trees don't overlap, evaluating proximity instantly.
-- **Biome Masking:** Utilizes `FastNoiseLite` to organically cut out sprawling meadows and clearings where trees will not spawn.
+- **Biome Masking:** Utilizes `FastNoiseLite` to organically cut out sprawling meadows and dirt patches where trees will not spawn, creating natural firebreaks.
 - **Spatial Indexing:** Organizes generated tree positions into a dictionary of `PackedVector3Array` chunks. This spatial hash allows the fire simulation to rapidly identify which trees are burning based on world coordinates.
 
 ### 3. Dynamic Weather & Atmosphere
 **Files:** `weather_manager.gd`, `day_night_cycle.gd`
 
 A continuous, deterministic, noise-driven weather system.
-- **Simplex Noise Drivers:** Four separate 1D `FastNoiseLite` generators drive Temperature, Relative Humidity (RH), Wind, and Rain intensity over time.
+- **Simplex Noise Drivers:** Four separate 1D `FastNoiseLite` generators drive Temperature, Relative Humidity (RH), Wind Speed, and Rain intensity over time.
+- **Continuous Wind Shifts:** A continuous vector rotation drives the `current_wind_dir` variable, shifting the direction of physical fire wedges organically over the simulation's lifespan.
 - **Dynamic Moisture:** Moisture acts as a buffer. Heavy rain charges the moisture shield, while heat, low humidity, and wind evaporate it over time.
 - **Volumetric Lightning:** During heavy storms, procedural volumetric lightning strikes occur using `Path3D` and `CSGPolygon3D` meshes, leaving behind dynamic light flashes.
 - **Day/Night Cycle:** Fully dynamic sky shader updates. Modulates sun and moon rotation, color temperature, and light energy based on the time of day. Clouds naturally block starlight and dim ambient light.
@@ -53,6 +57,7 @@ A continuous, deterministic, noise-driven weather system.
 - **World Offset Particles:** Fire and ember `GPUParticles3D` have engine interpolation disabled. Their world coordinates are offset inside their process shaders based on camera position. This prevents the particles from "jumping" or lagging behind when the camera moves quickly.
 - **Custom Collision Heightmaps:** The terrain script manually calculates a `HeightMapShape3D` corresponding to the shader's macro noise, enabling fast and accurate physics collisions without relying on complex mesh collisions.
 - **Threaded Texture Reads:** Reading pixels from a viewport texture is a heavy operation. The `FireManager` performs tree damage assessments entirely on background tasks using `WorkerThreadPool.add_task()`.
+- **Initialization Orchestration:** Game launch dynamically suspends all environment nodes (`PROCESS_MODE_DISABLED`), utilizing a seamless UI loader while the `WorkerThreadPool` scatters hundreds of thousands of trees and generates the Fuel Map, preventing engine lockup.
 
 ## 📂 Project Structure
 
