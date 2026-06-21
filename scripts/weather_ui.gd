@@ -86,6 +86,24 @@ func _on_viewport_resized() -> void:
 	$Margin.position.x = viewport_size.x - (340.0 * scale_factor)
 	$Margin.position.y = 0.0
 
+func _get_cardinal_direction(dir: Vector2) -> String:
+	var deg = rad_to_deg(dir.angle())
+	if deg < 0:
+		deg += 360.0
+	
+	# In meteorological terms, wind direction is usually where it's blowing FROM.
+	# But in games, players usually care about where it's blowing TO (where the fire goes).
+	# Adding an arrow makes the visual direction completely unambiguous.
+	if deg >= 337.5 or deg < 22.5: return "→ E"
+	if deg >= 22.5 and deg < 67.5: return "↘ SE"
+	if deg >= 67.5 and deg < 112.5: return "↓ S"
+	if deg >= 112.5 and deg < 157.5: return "↙ SW"
+	if deg >= 157.5 and deg < 202.5: return "← W"
+	if deg >= 202.5 and deg < 247.5: return "↖ NW"
+	if deg >= 247.5 and deg < 292.5: return "↑ N"
+	if deg >= 292.5 and deg < 337.5: return "↗ NE"
+	return ""
+
 func _process(_delta: float) -> void:
 	if not weather_manager or not day_night_cycle:
 		return
@@ -94,6 +112,9 @@ func _process(_delta: float) -> void:
 	var temp = weather_manager.current_temp
 	var rh = weather_manager.current_rh
 	var wind = weather_manager.current_wind
+	var wind_dir = Vector2(1, 0)
+	if "current_wind_dir" in weather_manager:
+		wind_dir = weather_manager.current_wind_dir
 	var rain = weather_manager.current_rain
 	
 	var current_condition = "Clear"
@@ -116,7 +137,7 @@ func _process(_delta: float) -> void:
 	condition_big.add_theme_color_override("font_color", cond_color)
 	
 	rh_label.text = "💧 %d %%" % int(rh)
-	wind_label.text = "💨 %.1f km/h" % wind
+	wind_label.text = "💨 %.1f km/h %s" % [wind, _get_cardinal_direction(wind_dir)]
 	if rain > 0:
 		rain_label.text = "☔ %.1f mm" % rain
 		rain_label.show()

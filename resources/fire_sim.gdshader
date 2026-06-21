@@ -2,6 +2,7 @@ shader_type canvas_item;
 render_mode blend_disabled;
 
 uniform sampler2D state_tex : filter_nearest, repeat_disable;
+uniform sampler2D fuel_map : filter_nearest, repeat_disable;
 uniform vec2 ignite_pos = vec2(-1.0, -1.0);
 uniform float ignite_radius = 0.002;
 
@@ -9,6 +10,7 @@ uniform float ignite_radius = 0.002;
 uniform float current_temp = 20.0;
 uniform float current_rh = 50.0;
 uniform float current_wind = 2.0;
+uniform vec2 current_wind_dir = vec2(1.0, 0.0);
 uniform float current_rain = 0.0;
 uniform float current_moisture = 0.0;
 uniform float sim_speed = 1.0;
@@ -28,7 +30,8 @@ void fragment() {
     
     // Initialization: Red=Fire, Green=Char, Blue=Fuel, Alpha=Heat
     if (length(state.rgb) < 0.01 && state.a < 0.01) {
-        state = vec4(0.0, 0.0, 1.0, 0.0);
+        // Fetch the initial fuel from the procedurally generated fuel map
+        state = vec4(0.0, 0.0, texture(fuel_map, uv).r, 0.0);
     }
     
     float fire = state.r;
@@ -36,38 +39,70 @@ void fragment() {
     float fuel = state.b;
     float heat = state.a;
     
-    // --- 1. THE SHIELD (Spread Prevention) ---
-    // Rain volume makes spread rapidly drop to zero.
+    // --- 1. THE SPREAD (Heat Accumulation & Directional Wind) ---
     if (fuel > 0.0 && fire < 0.1) {
         vec2 texel = 1.0 / vec2(textureSize(state_tex, 0));
-        float fire_up = texture(state_tex, uv + vec2(0.0, -texel.y)).r;
-        float fire_down = texture(state_tex, uv + vec2(0.0, texel.y)).r;
-        float fire_left = texture(state_tex, uv + vec2(-texel.x, 0.0)).r;
-        float fire_right = texture(state_tex, uv + vec2(texel.x, 0.0)).r;
-        float neighbor_fire = max(max(fire_up, fire_down), max(fire_left, fire_right));
         
-        // Spread limit: Only attempt spread twice a second per cell to fix the dice-roll issue
-        float spread_timer = mod(global_time + (uv.x + uv.y) * 10.0, 0.5);
-        if (neighbor_fire > 0.5 && spread_timer < delta_time) {
-            float p_base = 0.2;
-            float m_temp = mix(0.5, 1.5, smoothstep(2.2, 33.3, current_temp));
-            float m_rh;
-            if (current_rh <= 30.0) m_rh = mix(2.0, 1.5, smoothstep(15.0, 30.0, current_rh));
-            else if (current_rh >= 80.0) m_rh = mix(0.3, 0.1, smoothstep(80.0, 100.0, current_rh));
-            else m_rh = mix(1.5, 0.3, smoothstep(30.0, 80.0, current_rh));
-            
-            float m_wind = mix(1.0, 2.5, smoothstep(0.4, 9.4, current_wind));
-            
-            // --- 1. THE MOISTURE SHIELD ---
-            // The shield is now driven by current_moisture, which persists after rain stops.
-            // 1.0 moisture = 100% shield (0% spread probability)
-            float spread_shield = current_moisture; 
-            float p_ignite = (p_base * m_temp * m_rh * m_wind) * (1.0 - spread_shield);
-            
-            float r = rand(uv * 100.0 + vec2(global_time));
-            if (r < p_ignite * sim_speed) { 
-                fire = 0.2; 
-            }
+        vec4 s_up = texture(state_tex, uv + vec2(0.0, -texel.y));
+        vec4 s_down = texture(state_tex, uv + vec2(0.0, texel.y));
+        vec4 s_left = texture(state_tex, uv + vec2(-texel.x, 0.0));
+        vec4 s_right = texture(state_tex, uv + vec2(texel.x, 0.0));
+        
+        float incoming_heat = 0.0;
+        float rad_base = 2.5; // Base heat radiation per second
+        
+        // Directional Wind Multipliers
+        // Wind blows FROM neighbor TO us.
+        // In Godot 2D Texture Space: +X is Right, +Y is Down.
+        vec2 dir_from_up = vec2(0.0, 1.0);
+        vec2 dir_from_down = vec2(0.0, -1.0);
+        vec2 dir_from_left = vec2(1.0, 0.0);
+        vec2 dir_from_right = vec2(-1.0, 0.0);
+        
+        if (s_up.r > 0.05) {
+            float wind_dot = dot(current_wind_dir, dir_from_up);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            incoming_heat += s_up.r * s_up.b * rad_base * w_factor;
+        }
+        if (s_down.r > 0.05) {
+            float wind_dot = dot(current_wind_dir, dir_from_down);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            incoming_heat += s_down.r * s_down.b * rad_base * w_factor;
+        }
+        if (s_left.r > 0.05) {
+            float wind_dot = dot(current_wind_dir, dir_from_left);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            incoming_heat += s_left.r * s_left.b * rad_base * w_factor;
+        }
+        if (s_right.r > 0.05) {
+            float wind_dot = dot(current_wind_dir, dir_from_right);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            incoming_heat += s_right.r * s_right.b * rad_base * w_factor;
+        }
+        
+        // Accumulate incoming heat
+        heat += incoming_heat * delta_time * sim_speed;
+        
+        // Environmental Cooling (Dissipates heat over time)
+        float cooling = 0.8; // Base cooling per second
+        cooling += smoothstep(30.0, 100.0, current_rh) * 3.0; // Damp air cools fast
+        cooling -= smoothstep(15.0, 35.0, current_temp) * 0.5; // Hot air cools slower
+        cooling += current_moisture * 15.0; // Persistent moisture massacres heat
+        cooling += current_rain * 5.0; // Active rain cools instantly
+        
+        heat -= cooling * delta_time * sim_speed;
+        heat = max(0.0, heat);
+        
+        // Absolute Dew Point / Dampness Cutoff
+        if (current_rh > 85.0 && current_wind < 4.0) {
+            heat = 0.0; // Too damp to ever ignite naturally
+        }
+        
+        // Ignition Threshold
+        // Grass (0.4 fuel) needs ~0.32 heat. Tree (1.0 fuel) needs 0.8 heat.
+        float threshold = fuel * 0.8; 
+        if (heat > threshold && fuel > 0.0 && incoming_heat > 0.0) {
+            fire = 0.2; // IGNITE
         }
     }
     

@@ -30,6 +30,7 @@ var noise_rain: FastNoiseLite
 var current_temp: float = 20.0
 var current_rh: float = 50.0
 var current_wind: float = 2.0
+var current_wind_dir: Vector2 = Vector2(1.0, 0.0)
 var current_rain: float = 0.0
 var current_moisture: float = 0.0 # 0.0 to 1.0 persistent saturation
 
@@ -81,6 +82,9 @@ func _process(delta: float) -> void:
 	var base_temp = remap(raw_temp, -1.0, 1.0, temp_min, temp_max)
 	current_rh = remap(raw_rh, -1.0, 1.0, rh_min, rh_max)
 	current_wind = remap(raw_wind, -1.0, 1.0, wind_min, wind_max)
+	
+	# Slowly rotate wind direction over time
+	current_wind_dir = Vector2(cos(_time_elapsed * 0.02), sin(_time_elapsed * 0.02)).normalized()
 	
 	# Threshold-Driven State: Rain Trigger
 	var is_raining = current_rh >= rh_rain_threshold

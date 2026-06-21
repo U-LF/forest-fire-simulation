@@ -60,9 +60,14 @@ func _ready():
 		meadow_noise.frequency = 0.005 # Large sprawling meadows
 		meadow_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
 	
+	var map_size = 2048
+	var fire_mgr = get_parent().get_node_or_null("FireManager")
+	if fire_mgr and "map_size" in fire_mgr:
+		map_size = fire_mgr.map_size
+	
 	# Start generation on a background thread
 	# Using WorkerThreadPool for Godot 4 best practices
-	WorkerThreadPool.add_task(_generate_forest_threaded)
+	WorkerThreadPool.add_task(_generate_forest_threaded.bind(map_size))
 
 func _update_capacity_info():
 	_max_tree_limit_cache = get_max_tree_capacity()
@@ -99,7 +104,7 @@ func get_max_tree_capacity() -> int:
 	# Return 10% lower than the theoretical maximum
 	return int(theoretical_max * 0.9)
 
-func _generate_forest_threaded():
+func _generate_forest_threaded(map_size: int = 2048):
 	if _is_generating: return
 	_is_generating = true
 	
@@ -112,6 +117,25 @@ func _generate_forest_threaded():
 	
 	var cols = ceil(terrain_width / chunk_size)
 	var rows = ceil(terrain_depth / chunk_size)
+		
+	var fuel_img = Image.create(map_size, map_size, false, Image.FORMAT_L8)
+	fuel_img.fill(Color(0.0, 0.0, 0.0, 1.0))
+	
+	var dirt_noise = FastNoiseLite.new()
+	dirt_noise.seed = randi()
+	dirt_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	dirt_noise.frequency = 0.05
+	
+	print("ForestGenerator: Generating Fuel Map...")
+	for py in range(map_size):
+		var world_z = (py / float(map_size) - 0.5) * terrain_depth
+		for px in range(map_size):
+			var world_x = (px / float(map_size) - 0.5) * terrain_width
+			var normal = terrain.get_normal_at(world_x, world_z)
+			if normal.dot(Vector3.UP) > 0.78:
+				# Leave 15% to 20% dirt gaps for fire breaks
+				if dirt_noise.get_noise_2d(world_x, world_z) > -0.3:
+					fuel_img.set_pixel(px, py, Color(0.4, 0.4, 0.4, 1.0))
 	
 	# 1. Prepare data structures
 	var tree_data = [] # [tree_type][chunk_idx] = Array[Transform3D]
@@ -234,13 +258,17 @@ func _generate_forest_threaded():
 			spatial_index[grid_key]["types"].append(type_idx)
 			spatial_index[grid_key]["states"].append(0)
 			
+			var fuel_px = clamp(int((local_x / terrain_width) * map_size), 0, map_size - 1)
+			var fuel_py = clamp(int((local_z / terrain_depth) * map_size), 0, map_size - 1)
+			fuel_img.set_pixel(fuel_px, fuel_py, Color(1.0, 1.0, 1.0, 1.0))
+			
 			placed += 1
 
 	# 4. Finalize on Main Thread
 	# We must instantiate nodes on the main thread
-	call_deferred("_finalize_generation", tree_meshes, tree_material_arrays, tree_data, cols, rows)
+	call_deferred("_finalize_generation", tree_meshes, tree_material_arrays, tree_data, cols, rows, fuel_img)
 
-func _finalize_generation(meshes, material_arrays, data, cols, rows):
+func _finalize_generation(meshes, material_arrays, data, cols, rows, fuel_img):
 	var wind_shader = load("res://resources/tree_wind.gdshader")
 	_chunks.clear()
 	
@@ -250,6 +278,10 @@ func _finalize_generation(meshes, material_arrays, data, cols, rows):
 		if not fire_mgr.vp_a:
 			await fire_mgr.ready
 		burn_map = fire_mgr.get_burn_map()
+		if fuel_img:
+			var fuel_tex = ImageTexture.create_from_image(fuel_img)
+			fire_mgr.sim_mat_a.set_shader_parameter("fuel_map", fuel_tex)
+			fire_mgr.sim_mat_b.set_shader_parameter("fuel_map", fuel_tex)
 	
 	for type_idx in range(tree_scenes.size()):
 		var original_mesh = meshes[type_idx]
