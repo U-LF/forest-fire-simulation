@@ -149,7 +149,6 @@ func _generate_forest_threaded():
 
 	# 3. Scatter trees
 	var rng = RandomNumberGenerator.new()
-	rng.randomize()
 	
 	# Occupancy grid for fast proximity checks (approximate minimum trunk distance)
 	var occ_cell_size = 1.8 
@@ -421,7 +420,6 @@ func _scatter_trees_logic(multimesh: MultiMesh):
 	var buffer = 10.0
 	
 	var rng = RandomNumberGenerator.new()
-	rng.randomize()
 	
 	while valid_count < multimesh.instance_count and attempts < max_attempts:
 		attempts += 1

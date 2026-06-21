@@ -162,7 +162,7 @@ func _inject_to_terrain() -> void:
 func _connect_to_camera() -> void:
 	var cam = get_viewport().get_camera_3d()
 	if cam and cam.has_signal("fire_started"):
-		cam.connect("fire_started", _on_fire_started)
+		cam.fire_started.connect(_on_fire_started)
 
 var _ignite_frames: int = 0
 

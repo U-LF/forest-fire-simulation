@@ -14,16 +14,15 @@ var image_width: int = 1024
 var image_height: int = 1024
 
 func _ready() -> void:
-	randomize()
 	
 	if not terrain_material:
 		push_error("TerrainGenerator: terrain_material is null!")
-		emit_signal("terrain_ready")
+		terrain_ready.emit()
 		return
 		
 	if not mesh_instance or not collision_shape:
 		push_error("TerrainGenerator: mesh_instance or collision_shape is missing!")
-		emit_signal("terrain_ready")
+		terrain_ready.emit()
 		return
 
 	if mesh_instance.mesh is PlaneMesh:
@@ -82,7 +81,7 @@ func _ready() -> void:
 			push_error("TerrainGenerator: Failed to get image from macro_noise texture after waiting!")
 			
 	_generate_collision_heightmap()
-	emit_signal("terrain_ready")
+	terrain_ready.emit()
 
 func get_height_at(world_x: float, world_z: float) -> float:
 	if not macro_image: return 0.0

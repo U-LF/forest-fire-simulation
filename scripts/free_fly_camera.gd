@@ -54,8 +54,7 @@ func _input(event: InputEvent) -> void:
 		_rotation.y -= event.relative.x * mouse_sensitivity
 		_rotation.x = clamp(_rotation.x, -89.0, 89.0)
 		
-		rotation_degrees.x = _rotation.x
-		rotation_degrees.y = _rotation.y
+		transform.basis = Basis.from_euler(Vector3(deg_to_rad(_rotation.x), deg_to_rad(_rotation.y), 0.0))
 	
 	if event.is_action_pressed("ui_cancel"):
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -75,25 +74,29 @@ func _process(delta: float) -> void:
 	var multiplier = speed_multiplier if Input.is_action_pressed("camera_speed") else 1.0
 	var target_velocity = (transform.basis * input_dir) * movement_speed * multiplier
 	
-	_velocity = _velocity.lerp(target_velocity, acceleration * delta)
-	position += _velocity * delta
+	_velocity = _velocity.lerp(target_velocity, clamp(acceleration * delta, 0.0, 1.0))
+	
+	var pos = global_position
+	pos += _velocity * delta
 	
 	# --- Bounds Collision ---
 	if terrain:
 		var half_x = terrain.terrain_size.x / 2.0
 		var half_z = terrain.terrain_size.y / 2.0
-		global_position.x = clamp(global_position.x, -half_x, half_x)
-		global_position.z = clamp(global_position.z, -half_z, half_z)
+		pos.x = clamp(pos.x, -half_x, half_x)
+		pos.z = clamp(pos.z, -half_z, half_z)
 	
 	# --- Ground Collision ---
 	if terrain and terrain.macro_image:
-		var terrain_height = terrain.get_height_at(global_position.x, global_position.z)
+		var terrain_height = terrain.get_height_at(pos.x, pos.z)
 		var min_height = terrain_height + 2.0 # Keep camera 2 units above ground
-		if global_position.y < min_height:
-			global_position.y = min_height
+		if pos.y < min_height:
+			pos.y = min_height
 			# If we hit the ground, kill vertical downward velocity to prevent "jitter"
 			if _velocity.y < 0:
 				_velocity.y = 0
+				
+	global_position = pos
 
 	_process_laser()
 
@@ -135,7 +138,7 @@ func _process_laser() -> void:
 		_is_firing_laser = true
 		
 		# Continuously paint fire
-		emit_signal("fire_started", hit_pos)
+		fire_started.emit(hit_pos)
 	else:
 		if _is_firing_laser:
 			print("Camera: Stopped painting fire.")
