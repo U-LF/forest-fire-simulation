@@ -43,6 +43,10 @@ func _ready() -> void:
 	if fire_manager and fire_manager.has_signal("tree_stats_updated"):
 		fire_manager.tree_stats_updated.connect(update_tree_stats)
 			
+	# Handle dynamic resolution scaling
+	get_viewport().size_changed.connect(_on_viewport_resized)
+	_on_viewport_resized()
+			
 	# Initialize 7 forecast rows dynamically so they align perfectly
 	for i in range(7):
 		var row = HBoxContainer.new()
@@ -67,6 +71,20 @@ func _ready() -> void:
 		row.add_child(details_lbl)
 		forecast_list.add_child(row)
 		forecast_rows.append(row)
+
+func _on_viewport_resized() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	var base_size = Vector2(1928.0, 1080.0)
+	
+	# Scale based on the smallest ratio to ensure it fits perfectly regardless of aspect ratio
+	var scale_factor = min(viewport_size.x / base_size.x, viewport_size.y / base_size.y)
+	
+	$Margin.scale = Vector2(scale_factor, scale_factor)
+	
+	# Keep it anchored to the top right of the actual screen
+	# The UI's base width is 340. We shift it left by 340 * scale_factor.
+	$Margin.position.x = viewport_size.x - (340.0 * scale_factor)
+	$Margin.position.y = 0.0
 
 func _process(_delta: float) -> void:
 	if not weather_manager or not day_night_cycle:
