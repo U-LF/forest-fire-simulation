@@ -49,7 +49,7 @@ void fragment() {
         vec4 s_right = texture(state_tex, uv + vec2(texel.x, 0.0));
         
         float incoming_heat = 0.0;
-        float rad_base = 2.5; // Base heat radiation per second
+        float rad_base = 5.0; // INCREASED: Base heat radiation per second (Real fires spread fast)
         
         // Directional Wind Multipliers
         // Wind blows FROM neighbor TO us.
@@ -61,22 +61,22 @@ void fragment() {
         
         if (s_up.r > 0.05) {
             float wind_dot = dot(current_wind_dir, dir_from_up);
-            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 2.0 - max(0.0, -wind_dot) * (current_wind * 0.5);
             incoming_heat += s_up.r * s_up.b * rad_base * w_factor;
         }
         if (s_down.r > 0.05) {
             float wind_dot = dot(current_wind_dir, dir_from_down);
-            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 2.0 - max(0.0, -wind_dot) * (current_wind * 0.5);
             incoming_heat += s_down.r * s_down.b * rad_base * w_factor;
         }
         if (s_left.r > 0.05) {
             float wind_dot = dot(current_wind_dir, dir_from_left);
-            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 2.0 - max(0.0, -wind_dot) * (current_wind * 0.5);
             incoming_heat += s_left.r * s_left.b * rad_base * w_factor;
         }
         if (s_right.r > 0.05) {
             float wind_dot = dot(current_wind_dir, dir_from_right);
-            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 1.5 - max(0.0, -wind_dot) * (current_wind * 0.9);
+            float w_factor = 1.0 + max(0.0, wind_dot) * current_wind * 2.0 - max(0.0, -wind_dot) * (current_wind * 0.5);
             incoming_heat += s_right.r * s_right.b * rad_base * w_factor;
         }
         
@@ -84,11 +84,11 @@ void fragment() {
         heat += incoming_heat * delta_time * sim_speed;
         
         // Environmental Cooling (Dissipates heat over time)
-        float cooling = 0.8; // Base cooling per second
-        cooling += smoothstep(30.0, 100.0, current_rh) * 3.0; // Damp air cools fast
-        cooling -= smoothstep(15.0, 35.0, current_temp) * 0.5; // Hot air cools slower
-        cooling += current_moisture * 15.0; // Persistent moisture massacres heat
-        cooling += current_rain * 5.0; // Active rain cools instantly
+        float cooling = 0.5; // LOWERED: Base cooling per second
+        cooling += smoothstep(30.0, 100.0, current_rh) * 1.5; 
+        cooling -= smoothstep(15.0, 35.0, current_temp) * 0.5; 
+        cooling += current_moisture * 10.0; 
+        cooling += current_rain * 5.0; 
         
         heat -= cooling * delta_time * sim_speed;
         heat = max(0.0, heat);
@@ -99,8 +99,8 @@ void fragment() {
         }
         
         // Ignition Threshold
-        // Grass (0.4 fuel) needs ~0.32 heat. Tree (1.0 fuel) needs 0.8 heat.
-        float threshold = fuel * 0.8; 
+        // Grass (0.4 fuel) needs ~0.16 heat. Tree (1.0 fuel) needs 0.4 heat.
+        float threshold = fuel * 0.4; // LOWERED: Trees ignite at lower heat loads
         if (heat > threshold && fuel > 0.0 && incoming_heat > 0.0) {
             fire = 0.2; // IGNITE
         }

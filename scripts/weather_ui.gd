@@ -183,7 +183,7 @@ func _process(_delta: float) -> void:
 		
 		var raw_temp = weather_manager.noise_temp.get_noise_1d(time_eval)
 		var raw_rh = weather_manager.noise_rh.get_noise_1d(time_eval)
-		var raw_wind = weather_manager.noise_wind.get_noise_1d(time_eval)
+		var _raw_wind = weather_manager.noise_wind.get_noise_1d(time_eval)
 		
 		var f_temp = remap(raw_temp, -1.0, 1.0, weather_manager.temp_min, weather_manager.temp_max)
 		var f_rh = remap(raw_rh, -1.0, 1.0, weather_manager.rh_min, weather_manager.rh_max)
